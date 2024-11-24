@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Ledger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        input, button {
+            margin: 5px 0;
+            padding: 5px;
+        }
+
+        #transaction-ledger ul, #user-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Public Ledger</h1>
+
+    <!-- User Management -->
+    <div id="user-management">
+        <h2>User Management</h2>
+        <label for="user-id">User ID:</label>
+        <input type="text" id="user-id" placeholder="Enter User ID"><br>
+        <label for="balance">Balance:</label>
+        <input type="number" id="balance" placeholder="Enter Balance"><br>
+        <label for="seed-phrase">Seed Phrase:</label>
+        <input type="text" id="seed-phrase" placeholder="Enter Seed Phrase"><br>
+        <label for="phone-number">Phone Number:</label>
+        <input type="text" id="phone-number" placeholder="Enter Phone Number"><br>
+        <button onclick="saveUser()">Save User</button>
+        <button onclick="fetchAllUsers()">Fetch All Users</button>
+        <ul id="user-list"></ul>
+    </div>
+
+    <!-- Transaction Management -->
+    <div id="transaction-management">
+        <h2>Transactions</h2>
+        <label for="sender">Sender:</label>
+        <input type="text" id="sender" placeholder="Sender ID"><br>
+        <label for="receiver">Receiver:</label>
+        <input type="text" id="receiver" placeholder="Receiver ID"><br>
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" placeholder="Amount"><br>
+        <button onclick="addTransaction()">Add Transaction</button>
+    </div>
+
+    <!-- Public Ledger -->
+    <div id="public-ledger">
+        <h2>Transaction Ledger</h2>
+        <ul id="transaction-ledger"></ul>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAk91lfAWMxvNFfoiDAFpoyJHTRh88s0nc",
+            authDomain: "publicledger-31ea9.firebaseapp.com",
+            projectId: "publicledger-31ea9",
+            storageBucket: "publicledger-31ea9.appspot.com",
+            messagingSenderId: "648981585684",
+            appId: "1:648981585684:web:ba30e335d599180ca7ac01",
+            measurementId: "G-6DGGC600JX"
+        };
+
+        // Initialize Firebase and Firestore
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
+
+        // Save or update a user
+        async function saveUser() {
+            const userId = document.getElementById("user-id").value;
+            const balance = parseInt(document.getElementById("balance").value, 10);
+            const seedPhrase = document.getElementById("seed-phrase").value;
+            const phoneNumber = document.getElementById("phone-number").value;
+
+            try {
+                await db.collection("users").doc(userId).set({
+                    balance: balance,
+                    seedPhrase: seedPhrase,
+                    phoneNumber: phoneNumber
+                }, { merge: true });
+                alert(`User ${userId} saved successfully.`);
+            } catch (error) {
+                console.error("Error saving user:", error);
+            }
+        }
+
+        // Fetch all users
+        async function fetchAllUsers() {
+            const userList = document.getElementById("user-list");
+            userList.innerHTML = ""; // Clear list
+
+            try {
+                const querySnapshot = await db.collection("users").get();
+                querySnapshot.forEach((doc) => {
+                    const user = doc.data();
+                    const listItem = document.createElement("li");
+                    listItem.textContent = `${doc.id}: ${JSON.stringify(user)}`;
+                    userList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error("Error fetching users:", error);
+            }
+        }
+
+        // Add a transaction
+        async function addTransaction() {
+            const sender = document.getElementById("sender").value;
+            const receiver = document.getElementById("receiver").value;
+            const amount = parseInt(document.getElementById("amount").value, 10);
+            const timestamp = new Date().toISOString();
+
+            try {
+                await db.collection("transactions").doc(timestamp).set({
+                    sender: sender,
+                    receiver: receiver,
+                    amount: amount,
+                    timestamp: timestamp
+                });
+                alert("Transaction added successfully.");
+            } catch (error) {
+                console.error("Error adding transaction:", error);
+            }
+        }
+
+        // Display transaction ledger
+        async function displayLedger() {
+            const ledger = document.getElementById("transaction-ledger");
+            ledger.innerHTML = ""; // Clear ledger
+
+            try {
+                const querySnapshot = await db.collection("transactions").get();
+                querySnapshot.forEach((doc) => {
+                    const transaction = doc.data();
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `
+                        <strong>From:</strong> ${transaction.sender} <br>
+                        <strong>To:</strong> ${transaction.receiver} <br>
+                        <strong>Amount:</strong> ${transaction.amount} <br>
+                        <strong>Timestamp:</strong> ${transaction.timestamp}
+                    `;
+                    ledger.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error("Error displaying ledger:", error);
+            }
+        }
+
+        // Load transaction ledger on page load
+        document.addEventListener("DOMContentLoaded", displayLedger);
+    </script>
+</body>
+</html>
