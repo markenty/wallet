@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Blockchain and Users</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+        button {
+            background-color: #ff4c4c;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #ff1a1a;
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            font-size: 18px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reset Blockchain and User Data</h1>
+    <p>Click the button below to completely reset all blockchain transactions, verified transactions, and user data. This action cannot be undone.</p>
+    <button id="reset-button">Reset All Data</button>
+    <p id="reset-message" style="margin-top: 20px; font-weight: bold; color: green;"></p>
+
+    <script>
+        document.getElementById("reset-button").addEventListener("click", () => {
+            if (confirm("Are you sure you want to reset all blockchain and user data? This action cannot be undone.")) {
+                localStorage.removeItem("users");
+                localStorage.removeItem("transactions");
+                localStorage.removeItem("verifiedTransactions");
+                document.getElementById("reset-message").innerText = "All data has been successfully reset.";
+            }
+        });
+    </script>
+</body>
+</html>

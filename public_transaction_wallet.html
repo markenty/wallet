@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Verification, Wallet, and User Activity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button {
+            margin: 5px 0;
+        }
+        #wallet-info, #user-activity, #unverified-transactions, #send-coins-section, #public-info {
+            margin-top: 20px;
+        }
+        #unverified-transactions ul, #user-activity ul, #transaction-ledger ul {
+            list-style: none;
+            padding: 0;
+        }
+        #unverified-transactions li, #user-activity li, #transaction-ledger li {
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #verification-info p, #wallet-info p, #send-coins-section p, #user-activity p, #public-info p {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+   
+    <div id="public-info">
+        <h2>Public Info</h2>
+        <p id="total-circulation">Total Circulation: 💰 x 0</p>
+        <div id="transaction-ledger">
+            <h3>Transaction Ledger</h3>
+            <ul></ul>
+        </div>
+    </div>
+
+    <script>
+        const verificationReward = 10;
+        let users = {};
+        let transactions = [];
+        let verifiedTransactions = [];
+        let currentUserId = null;
+
+        function loadState() {
+            const savedUsers = localStorage.getItem("users");
+            const savedTransactions = localStorage.getItem("transactions");
+            const savedVerifiedTransactions = localStorage.getItem("verifiedTransactions");
+
+            users = savedUsers ? JSON.parse(savedUsers) : {};
+            transactions = savedTransactions ? JSON.parse(savedTransactions) : [];
+            verifiedTransactions = savedVerifiedTransactions ? JSON.parse(savedVerifiedTransactions) : [];
+        }
+
+        function saveState() {
+            localStorage.setItem("users", JSON.stringify(users));
+            localStorage.setItem("transactions", JSON.stringify(transactions));
+            localStorage.setItem("verifiedTransactions", JSON.stringify(verifiedTransactions));
+        }
+
+        function displayPublicInfo() {
+            const totalCirculation = Object.values(users).reduce((sum, user) => sum + (user.balance || 0), 0);
+            document.getElementById("total-circulation").innerText = `Total Circulation: 💰 x ${totalCirculation}`;
+
+            const ledgerContainer = document.querySelector("#transaction-ledger ul");
+            ledgerContainer.innerHTML = "";
+
+            if (transactions.length === 0) {
+                const noTransactionMessage = document.createElement("li");
+                noTransactionMessage.innerText = "No transactions recorded.";
+                ledgerContainer.appendChild(noTransactionMessage);
+                return;
+            }
+
+            transactions.forEach((tx) => {
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                      <strong>To:</strong> ${tx.receiver} <br>
+                                      <strong>Amount:</strong> ${tx.amount} <br>
+                                      <strong>Timestamp:</strong> ${tx.timestamp}`;
+                ledgerContainer.appendChild(listItem);
+            });
+        }
+
+        function accessInterface() {
+            const minerId = document.getElementById("miner-id-input").value;
+            const walletInfoContainer = document.getElementById("wallet-info");
+            const userActivityContainer = document.getElementById("user-activity");
+            const verificationInfo = document.getElementById("verification-info");
+            const unverifiedTransactionsContainer = document.getElementById("unverified-transactions");
+
+            walletInfoContainer.innerHTML = "";
+            userActivityContainer.innerHTML = "";
+            verificationInfo.innerHTML = "";
+            unverifiedTransactionsContainer.innerHTML = "";
+
+            if (!minerId || !users[minerId]) {
+                walletInfoContainer.innerHTML = "<p style='color: red;'>Invalid Wallet/User ID.</p>";
+                return;
+            }
+
+            currentUserId = minerId;
+
+            const balance = users[minerId].balance || 0;
+            walletInfoContainer.innerHTML = `<p>Your Wallet Balance: 💰 x ${balance}</p>`;
+
+            const userActivity = transactions.filter(
+                (tx) => tx.sender === minerId || tx.receiver === minerId
+            );
+            if (userActivity.length === 0) {
+                userActivityContainer.innerHTML = "<p>No transaction activity for this user.</p>";
+            } else {
+                userActivityContainer.innerHTML = "<h2>Your Activity</h2>";
+                const activityList = document.createElement("ul");
+                userActivity.forEach((tx) => {
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                          <strong>To:</strong> ${tx.receiver} <br>
+                                          <strong>Amount:</strong> ${tx.amount} <br>
+                                          <strong>Timestamp:</strong> ${tx.timestamp}`;
+                    activityList.appendChild(listItem);
+                });
+                userActivityContainer.appendChild(activityList);
+            }
+
+            const unverifiedTransactions = transactions.filter(
+                (tx) =>
+                    !verifiedTransactions.includes(tx.timestamp) &&
+                    tx.sender !== minerId &&
+                    tx.receiver !== minerId
+            );
+
+            if (unverifiedTransactions.length === 0) {
+                unverifiedTransactionsContainer.innerHTML = "<p>No unverified transactions available.</p>";
+                return;
+            }
+
+            const list = document.createElement("ul");
+            unverifiedTransactions.forEach((tx) => {
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                      <strong>To:</strong> ${tx.receiver} <br>
+                                      <strong>Amount:</strong> ${tx.amount} <br>
+                                      <strong>Timestamp:</strong> ${tx.timestamp}`;
+                list.appendChild(listItem);
+            });
+            unverifiedTransactionsContainer.appendChild(list);
+
+            const verifyButton = document.createElement("button");
+            verifyButton.innerText = `Verify and Earn ${verificationReward} Coins`;
+            verifyButton.onclick = () => verifyTransactions(minerId, unverifiedTransactions);
+            unverifiedTransactionsContainer.appendChild(verifyButton);
+
+            displayPublicInfo();
+        }
+
+        function verifyTransactions(minerId, unverifiedTransactions) {
+            unverifiedTransactions.forEach((tx) => {
+                verifiedTransactions.push(tx.timestamp);
+            });
+
+            users[minerId].balance += verificationReward;
+
+            transactions.push({
+                sender: "System",
+                receiver: minerId,
+                amount: verificationReward,
+                timestamp: new Date().toISOString(),
+            });
+
+            saveState();
+
+            accessInterface();
+            alert(`Successfully verified transactions. ${verificationReward} coins rewarded to ${minerId}.`);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadState();
+            displayPublicInfo();
+        });
+    </script>
+</body>
+</html>

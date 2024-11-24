@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Management Console</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input {
+            margin: 5px 0;
+        }
+        #app {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Coin Management Console</h1>
+
+    <!-- Login Screen -->
+    <div id="login">
+        <h2>Login</h2>
+        <p>Enter the password to access the console:</p>
+        <input type="password" id="password" placeholder="Password" />
+        <button onclick="authenticate()">Login</button>
+        <p id="login-error" style="color: red; display: none;">Incorrect password!</p>
+    </div>
+
+    <!-- Management Console -->
+    <div id="app">
+        <h2>Create a New User</h2>
+        <button onclick="createUser()">Create User</button>
+        <div id="users"></div>
+
+        <h2>Distribute Coins</h2>
+        <label for="user-select">Select User:</label>
+        <select id="user-select"></select>
+        <input type="number" id="coin-amount" placeholder="Amount" />
+        <button onclick="distributeCoins()">Distribute</button>
+
+        <h2>Perform a Transaction</h2>
+        <label for="sender-select">Sender:</label>
+        <select id="sender-select"></select>
+        <label for="receiver-select">Receiver:</label>
+        <select id="receiver-select"></select>
+        <input type="number" id="transaction-amount" placeholder="Amount" />
+        <button onclick="performTransaction()">Send Coins</button>
+
+        <h2>Transaction Log</h2>
+        <div id="transactions"></div>
+
+        <button onclick="saveState()">Save State</button>
+        <button onclick="clearState()">Clear State</button>
+    </div>
+
+    <script>
+        const password = "securepassword"; // Replace with your chosen password
+        let users = {};
+        let transactions = [];
+        const totalCoins = 21000000;
+        let currentCirculation = 0;
+
+        function authenticate() {
+            const enteredPassword = document.getElementById("password").value;
+            if (enteredPassword === password) {
+                document.getElementById("login").style.display = "none";
+                document.getElementById("app").style.display = "block";
+                loadState();
+            } else {
+                document.getElementById("login-error").style.display = "block";
+            }
+        }
+
+        function createUser() {
+            const userId = generateUUID();
+            users[userId] = { balance: 0 };
+            updateUserDropdowns();
+            displayUsers();
+        }
+
+        function distributeCoins() {
+            const userId = document.getElementById("user-select").value;
+            const amount = parseInt(document.getElementById("coin-amount").value);
+
+            if (userId && amount > 0 && currentCirculation + amount <= totalCoins) {
+                users[userId].balance += amount;
+                currentCirculation += amount;
+                displayUsers();
+                alert(`${amount} coins distributed to user ${userId}`);
+            } else {
+                alert("Invalid input or total coin supply exceeded!");
+            }
+        }
+
+        function performTransaction() {
+            const senderId = document.getElementById("sender-select").value;
+            const receiverId = document.getElementById("receiver-select").value;
+            const amount = parseInt(document.getElementById("transaction-amount").value);
+
+            if (
+                senderId &&
+                receiverId &&
+                senderId !== receiverId &&
+                amount > 0 &&
+                users[senderId].balance >= amount
+            ) {
+                users[senderId].balance -= amount;
+                users[receiverId].balance += amount;
+
+                const transactionId = generateTransactionId(senderId, receiverId, amount);
+                transactions.push({
+                    id: transactionId,
+                    sender: senderId,
+                    receiver: receiverId,
+                    amount: amount,
+                    timestamp: new Date().toISOString(),
+                });
+
+                displayUsers();
+                displayTransactions();
+                alert(`Transaction completed: ${amount} coins sent to ${receiverId}`);
+            } else {
+                alert("Invalid transaction!");
+            }
+        }
+
+        function displayUsers() {
+            const userContainer = document.getElementById("users");
+            userContainer.innerHTML = "<h3>User Balances</h3>";
+
+            for (const userId in users) {
+                userContainer.innerHTML += `<p>${userId}: ${users[userId].balance} coins</p>`;
+            }
+        }
+
+        function displayTransactions() {
+            const transactionContainer = document.getElementById("transactions");
+            transactionContainer.innerHTML = "<h3>Transaction Log</h3>";
+
+            transactions.forEach((tx) => {
+                transactionContainer.innerHTML += `<p>ID: ${tx.id}, From: ${tx.sender}, To: ${tx.receiver}, Amount: ${tx.amount}, Time: ${tx.timestamp}</p>`;
+            });
+        }
+
+        function updateUserDropdowns() {
+            const userSelect = document.getElementById("user-select");
+            const senderSelect = document.getElementById("sender-select");
+            const receiverSelect = document.getElementById("receiver-select");
+
+            userSelect.innerHTML = "";
+            senderSelect.innerHTML = "";
+            receiverSelect.innerHTML = "";
+
+            for (const userId in users) {
+                userSelect.innerHTML += `<option value="${userId}">${userId}</option>`;
+                senderSelect.innerHTML += `<option value="${userId}">${userId}</option>`;
+                receiverSelect.innerHTML += `<option value="${userId}">${userId}</option>`;
+            }
+        }
+
+        function saveState() {
+            const state = {
+                users: users,
+                transactions: transactions,
+                currentCirculation: currentCirculation,
+            };
+            localStorage.setItem("coinSystemState", JSON.stringify(state));
+            alert("State saved!");
+        }
+
+        function loadState() {
+            const state = localStorage.getItem("coinSystemState");
+            if (state) {
+                const parsedState = JSON.parse(state);
+                users = parsedState.users;
+                transactions = parsedState.transactions;
+                currentCirculation = parsedState.currentCirculation;
+                displayUsers();
+                displayTransactions();
+                updateUserDropdowns();
+            }
+        }
+
+        function clearState() {
+            localStorage.removeItem("coinSystemState");
+            users = {};
+            transactions = [];
+            currentCirculation = 0;
+            displayUsers();
+            displayTransactions();
+            updateUserDropdowns();
+            alert("State cleared!");
+        }
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = (Math.random() * 16) | 0,
+                    v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        }
+
+        function generateTransactionId(sender, receiver, amount) {
+            const hash = `${sender}${receiver}${amount}${new Date().toISOString()}`;
+            return btoa(hash).substring(0, 12);
+        }
+    </script>
+</body>
+</html>

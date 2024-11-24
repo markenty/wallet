@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Verification, Wallet, and User Activity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button {
+            margin: 5px 0;
+        }
+        #wallet-info, #user-activity, #unverified-transactions, #send-receive {
+            margin-top: 20px;
+        }
+        #unverified-transactions ul, #user-activity ul {
+            list-style: none;
+            padding: 0;
+        }
+        #unverified-transactions li, #user-activity li {
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #verification-info p, #wallet-info p, #send-receive p, #user-activity p {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Transaction Verification, Wallet, and User Activity</h1>
+
+    <h2>Access Interface</h2>
+    <label for="miner-id-input">Enter Wallet/User ID:</label>
+    <input type="text" id="miner-id-input" placeholder="Wallet ID"><br>
+    <button onclick="accessWallet()">Access</button>
+
+    <div id="wallet-info"></div>
+    <div id="user-activity"></div>
+    <div id="verification-info"></div>
+    <div id="unverified-transactions"></div>
+    <div id="send-receive"></div>
+
+    <script>
+        const verificationReward = 10; // Reward for verifying all unverified transactions
+        let users = {};
+        let transactions = [];
+        let verifiedTransactions = []; // Store transaction IDs that have been verified
+        let currentUserId = null;
+
+        // Load data from localStorage
+        function loadState() {
+            const savedUsers = localStorage.getItem("users");
+            const savedTransactions = localStorage.getItem("transactions");
+            const savedVerifiedTransactions = localStorage.getItem("verifiedTransactions");
+
+            users = savedUsers ? JSON.parse(savedUsers) : {};
+            transactions = savedTransactions ? JSON.parse(savedTransactions) : [];
+            verifiedTransactions = savedVerifiedTransactions ? JSON.parse(savedVerifiedTransactions) : [];
+        }
+
+        // Save state to localStorage
+        function saveState() {
+            localStorage.setItem("users", JSON.stringify(users));
+            localStorage.setItem("transactions", JSON.stringify(transactions));
+            localStorage.setItem("verifiedTransactions", JSON.stringify(verifiedTransactions));
+            console.log("State saved to localStorage.");
+        }
+
+        // Access wallet with verification
+        function accessWallet() {
+            const minerId = document.getElementById("miner-id-input").value;
+
+            if (!minerId || !users[minerId]) {
+                alert("Invalid Wallet/User ID.");
+                return;
+            }
+
+            // Check phone number first
+            const phoneNumber = prompt("Enter your phone number:");
+            if (phoneNumber && users[minerId].phoneNumber === phoneNumber) {
+                completeAccess(minerId);
+                return;
+            }
+
+            // Fallback to seed phrase if phone number fails
+            const seedPhrase = prompt("Phone number incorrect or missing. Enter your seed phrase:");
+            if (seedPhrase && users[minerId].seedPhrase === seedPhrase) {
+                completeAccess(minerId);
+                return;
+            }
+
+            alert("Access denied. Incorrect phone number or seed phrase.");
+        }
+
+        // Complete wallet access
+        function completeAccess(minerId) {
+            currentUserId = minerId;
+            displayWalletInfo();
+            displayUserActivity();
+            displayUnverifiedTransactions();
+            displaySendReceive();
+        }
+
+        // Display wallet info
+        function displayWalletInfo() {
+            const walletInfoContainer = document.getElementById("wallet-info");
+            walletInfoContainer.innerHTML = `<p>Your Wallet Balance: 💰 x ${users[currentUserId].balance}</p>`;
+        }
+
+        // Display user activity
+        function displayUserActivity() {
+            const userActivityContainer = document.getElementById("user-activity");
+            const userActivity = transactions.filter(
+                (tx) => tx.sender === currentUserId || tx.receiver === currentUserId
+            );
+
+            if (userActivity.length === 0) {
+                userActivityContainer.innerHTML = "<p>No transaction activity for this user.</p>";
+            } else {
+                userActivityContainer.innerHTML = "<h2>Your Activity</h2>";
+                const activityList = document.createElement("ul");
+                userActivity.forEach((tx) => {
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                          <strong>To:</strong> ${tx.receiver} <br>
+                                          <strong>Amount:</strong> ${tx.amount} <br>
+                                          <strong>Timestamp:</strong> ${tx.timestamp}`;
+                    activityList.appendChild(listItem);
+                });
+                userActivityContainer.appendChild(activityList);
+            }
+        }
+
+        // Display unverified transactions
+        function displayUnverifiedTransactions() {
+            const unverifiedTransactionsContainer = document.getElementById("unverified-transactions");
+            const unverifiedTransactions = transactions.filter(
+                (tx) =>
+                    !verifiedTransactions.includes(tx.timestamp) &&
+                    tx.sender !== currentUserId &&
+                    tx.receiver !== currentUserId
+            );
+
+            if (unverifiedTransactions.length === 0) {
+                unverifiedTransactionsContainer.innerHTML = "<p>No unverified transactions available.</p>";
+                return;
+            }
+
+            const list = document.createElement("ul");
+            unverifiedTransactions.forEach((tx) => {
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                      <strong>To:</strong> ${tx.receiver} <br>
+                                      <strong>Amount:</strong> ${tx.amount} <br>
+                                      <strong>Timestamp:</strong> ${tx.timestamp}`;
+                list.appendChild(listItem);
+            });
+            unverifiedTransactionsContainer.appendChild(list);
+
+            const verifyButton = document.createElement("button");
+            verifyButton.innerText = `Verify and Earn ${verificationReward} Coins`;
+            verifyButton.onclick = () => verifyTransactions(currentUserId, unverifiedTransactions);
+            unverifiedTransactionsContainer.appendChild(verifyButton);
+        }
+
+        // Verify transactions and reward miner
+        function verifyTransactions(minerId, unverifiedTransactions) {
+            const verifiedTimestamps = unverifiedTransactions.map(tx => tx.timestamp);
+
+            // Remove verified transactions from the main list
+            transactions = transactions.filter(tx => !verifiedTimestamps.includes(tx.timestamp));
+
+            // Add reward for verification
+            users[minerId].balance += verificationReward;
+            transactions.push({
+                sender: "System",
+                receiver: minerId,
+                amount: verificationReward,
+                timestamp: new Date().toISOString(),
+            });
+
+            saveState();
+            displayWalletInfo();
+            displayUnverifiedTransactions(); // Refresh the list of unverified transactions
+            alert(`Successfully verified transactions. ${verificationReward} coins rewarded to ${minerId}.`);
+        }
+
+        // Display send and receive functionality
+        function displaySendReceive() {
+            const sendReceiveContainer = document.getElementById("send-receive");
+            sendReceiveContainer.innerHTML = `
+                <h2>Send Coins</h2>
+                <label for="recipient-id">Recipient Wallet/User ID:</label>
+                <input type="text" id="recipient-id" placeholder="Recipient ID"><br>
+                <label for="send-amount">Amount to Send:</label>
+                <input type="number" id="send-amount" placeholder="Amount"><br>
+                <button onclick="sendCoins()">Send</button>
+            `;
+        }
+
+        // Send coins to another user
+        function sendCoins() {
+            const recipientId = document.getElementById("recipient-id").value;
+            const amount = parseInt(document.getElementById("send-amount").value, 10);
+
+            if (!currentUserId || !users[currentUserId]) {
+                alert("Please access your wallet first.");
+                return;
+            }
+
+            if (!recipientId || !users[recipientId]) {
+                alert("Invalid recipient ID.");
+                return;
+            }
+
+            if (amount <= 0 || users[currentUserId].balance < amount) {
+                alert("Invalid amount or insufficient balance.");
+                return;
+            }
+
+            // Deduct from sender, add to recipient
+            users[currentUserId].balance -= amount;
+            users[recipientId].balance += amount;
+
+            // Record transaction
+            transactions.push({
+                sender: currentUserId,
+                receiver: recipientId,
+                amount: amount,
+                timestamp: new Date().toISOString(),
+            });
+
+            saveState();
+            displayWalletInfo();
+            alert(`Successfully sent ${amount} coins to ${recipientId}.`);
+        }
+
+        // Load state on startup
+        document.addEventListener("DOMContentLoaded", loadState);
+    </script>
+</body>
+</html>

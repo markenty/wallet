@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        .edit-section {
+            display: none;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Management System</h1>
+    <button onclick="createUser()">Create New User</button>
+    <table id="users">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Balance</th>
+                <th>Seed Phrase</th>
+                <th>Phone Number</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const wordList = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"]; // Example word list
+        let users = {}; // Local memory representation of users
+        let localUsers = {}; // Snapshot of users from local storage
+
+        // Load data from localStorage
+        function loadState() {
+            const savedUsers = localStorage.getItem("users");
+            localUsers = savedUsers ? JSON.parse(savedUsers) : {};
+            users = { ...localUsers }; // Clone the data for in-memory operations
+            displayUsers();
+            console.log("Loaded state from localStorage.");
+        }
+
+        // Generate a unique 4-word seed phrase
+        function generateSeedPhrase() {
+            let phrase;
+            do {
+                phrase = Array.from({ length: 4 }, () => wordList[Math.floor(Math.random() * wordList.length)]).join(" ");
+            } while (Object.values(users).some(user => user.seedPhrase === phrase));
+            return phrase;
+        }
+
+        // Create a new user
+        function createUser() {
+            const userId = generateUUID();
+            const seedPhrase = generateSeedPhrase();
+            users[userId] = { balance: 0, seedPhrase: seedPhrase, phoneNumber: "" };
+            saveState();
+            alert(`New user created!
+ID: ${userId}
+Seed Phrase: ${seedPhrase}`);
+        }
+
+        // Display users in table format
+        function displayUsers() {
+            const userTableBody = document.querySelector("#users tbody");
+            userTableBody.innerHTML = ""; // Clear existing rows
+            for (const userId in users) {
+                const user = users[userId];
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${userId}</td>
+                    <td>${user.balance}</td>
+                    <td>${user.seedPhrase}</td>
+                    <td>${user.phoneNumber || ""}</td>
+                    <td>
+                        <button onclick="toggleEdit('${userId}')">Edit</button>
+                    </td>
+                `;
+                userTableBody.appendChild(row);
+
+                const editRow = document.createElement("tr");
+                editRow.className = "edit-section";
+                editRow.id = `edit-${userId}`;
+                editRow.innerHTML = `
+                    <td colspan="5">
+                        <div>
+                            <label for="seed-${userId}">Seed Phrase:</label>
+                            <input id="seed-${userId}" type="text" value="${user.seedPhrase}">
+                            <button onclick="generateAndSetSeed('${userId}')">Generate Random Phrase</button><br>
+                            <label for="phone-${userId}">Phone Number:</label>
+                            <input id="phone-${userId}" type="text" value="${user.phoneNumber || ''}"><br>
+                            <button onclick="saveUserChanges('${userId}')">Save Changes</button>
+                        </div>
+                    </td>
+                `;
+                userTableBody.appendChild(editRow);
+            }
+        }
+
+        // Hide all edit sections
+        function hideAllEditSections() {
+            const rows = document.querySelectorAll(".edit-section");
+            rows.forEach(row => {
+                row.style.display = "none";
+            });
+        }
+
+        // Toggle the visibility of the edit section for a user
+        function toggleEdit(userId) {
+            hideAllEditSections(); // Close all other sections
+            const editSection = document.getElementById(`edit-${userId}`);
+            editSection.style.display = editSection.style.display === "none" ? "table-row" : "none";
+        }
+
+        // Generate a random seed phrase for a specific user
+        function generateAndSetSeed(userId) {
+            const newSeed = generateSeedPhrase();
+            const seedInput = document.getElementById(`seed-${userId}`);
+            if (seedInput) {
+                seedInput.value = newSeed;
+            }
+        }
+
+        // Save changes to user data
+        function saveUserChanges(userId) {
+            const seedInput = document.getElementById(`seed-${userId}`);
+            const phoneInput = document.getElementById(`phone-${userId}`);
+
+            if (seedInput) {
+                const newSeed = seedInput.value.trim();
+                if (!newSeed) {
+                    alert("Seed phrase cannot be empty.");
+                    return;
+                }
+                users[userId].seedPhrase = newSeed;
+            }
+
+            if (phoneInput) {
+                users[userId].phoneNumber = phoneInput.value.trim();
+            }
+
+            saveState();
+            alert(`Changes saved for user ${userId}`);
+        }
+
+        // Save state to localStorage
+        function saveState() {
+            localStorage.setItem("users", JSON.stringify(users));
+            localUsers = { ...users }; // Update snapshot after saving
+            displayUsers();
+            console.log("State saved to localStorage.");
+        }
+
+        // Generate unique ID
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = (Math.random() * 16) | 0,
+                    v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        }
+
+        // Detect clicks outside the edit section to auto-hide
+        document.addEventListener("click", (event) => {
+            const isClickInsideTable = event.target.closest("#users");
+            if (!isClickInsideTable) {
+                hideAllEditSections();
+            }
+        });
+
+        // Auto-refresh every 10 seconds
+        setInterval(() => {
+            loadState();
+        }, 10000);
+
+        // Load the state on startup
+        document.addEventListener("DOMContentLoaded", () => {
+            loadState();
+        });
+    </script>
+</body>
+</html>

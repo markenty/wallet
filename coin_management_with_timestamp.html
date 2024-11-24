@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coin Management Console</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 80vh;
+            border: none;
+        }
+        nav {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Coin Management Console</h1>
+    <div class="section">
+        <h2>Create a New User</h2>
+        <button onclick="createUser()">Create User</button>
+        <p id="new-user-details" style="margin-top: 10px; font-weight: bold;"></p>
+    </div>
+
+    <div class="section">
+        <h2>User Balances</h2>
+        <ul id="user-balances"></ul>
+    </div>
+
+    <div class="section">
+        <h2>Total Supply</h2>
+        <p id="total-supply" style="font-weight: bold;"></p>
+        <p id="undistributed-supply" style="font-weight: bold;"></p>
+    </div>
+
+    <div class="section">
+        <h2>Distribute Coins</h2>
+        <div class="form-group">
+            <label for="distribute-user">Select User:</label>
+            <select id="distribute-user"></select>
+        </div>
+        <div class="form-group">
+            <label for="distribute-amount">Amount:</label>
+            <input type="number" id="distribute-amount" placeholder="Enter amount to distribute">
+        </div>
+        <button id="distribute-coins-button">Distribute</button>
+    </div>
+
+    <div class="section">
+        <h2>Perform a Transaction</h2>
+        <div class="form-group">
+            <label for="sender">Sender:</label>
+            <select id="sender"></select>
+        </div>
+        <div class="form-group">
+            <label for="receiver">Receiver:</label>
+            <select id="receiver"></select>
+        </div>
+        <div class="form-group">
+            <label for="transaction-amount">Amount:</label>
+            <input type="number" id="transaction-amount" placeholder="Enter amount to send">
+        </div>
+        <button id="perform-transaction-button">Send Coins</button>
+    </div>
+
+    <script>
+        const wordList = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
+        const totalSupplyLimit = 21000000; // Fixed total supply
+        let users = JSON.parse(localStorage.getItem("users")) || {};
+        let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+
+        function saveState() {
+            localStorage.setItem("users", JSON.stringify(users));
+            localStorage.setItem("transactions", JSON.stringify(transactions));
+        }
+
+        function loadState() {
+            users = JSON.parse(localStorage.getItem("users")) || {};
+            transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+            displayUserBalances();
+            updateDropdowns();
+            updateSupplyDisplay();
+        }
+
+        function createUser() {
+            const userId = generateUUID();
+            const seedPhrase = generateSeedPhrase();
+            users[userId] = { balance: 0, seedPhrase: seedPhrase };
+            saveState();
+            displayUserBalances();
+            updateDropdowns();
+
+            const newUserDetails = document.getElementById("new-user-details");
+            newUserDetails.innerHTML = `
+                New User Created!<br>
+                <strong>ID:</strong> ${userId}<br>
+                <strong>Seed Phrase:</strong> ${seedPhrase}
+            `;
+        }
+
+        function generateSeedPhrase() {
+            return Array.from({ length: 4 }, () => wordList[Math.floor(Math.random() * wordList.length)]).join(" ");
+        }
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = (Math.random() * 16) | 0,
+                    v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        }
+
+        function updateSupplyDisplay() {
+            const totalCirculation = Object.values(users).reduce((sum, user) => sum + (user.balance || 0), 0);
+            const undistributedSupply = totalSupplyLimit - totalCirculation;
+            document.getElementById("total-supply").textContent = `Total Circulation: ${totalCirculation} / ${totalSupplyLimit}`;
+            document.getElementById("undistributed-supply").textContent = `Undistributed Supply: ${undistributedSupply}`;
+        }
+
+        function updateDropdowns() {
+            const distributeUserSelect = document.getElementById("distribute-user");
+            const senderSelect = document.getElementById("sender");
+            const receiverSelect = document.getElementById("receiver");
+
+            distributeUserSelect.innerHTML = "";
+            senderSelect.innerHTML = "";
+            receiverSelect.innerHTML = "";
+
+            for (const userId in users) {
+                const option = new Option(userId, userId);
+                distributeUserSelect.add(option.cloneNode(true));
+                senderSelect.add(option.cloneNode(true));
+                receiverSelect.add(option.cloneNode(true));
+            }
+        }
+
+        document.getElementById("distribute-coins-button").addEventListener("click", () => {
+            const userId = document.getElementById("distribute-user").value;
+            const amount = parseFloat(document.getElementById("distribute-amount").value);
+
+            if (!userId || isNaN(amount) || amount <= 0 || amount > (totalSupplyLimit - Object.values(users).reduce((sum, user) => sum + (user.balance || 0), 0))) {
+                alert("Invalid distribution amount or exceeds available supply.");
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            users[userId].balance = (users[userId].balance || 0) + amount;
+            transactions.push({ sender: "System", receiver: userId, amount, timestamp });
+            saveState();
+            displayUserBalances();
+            updateSupplyDisplay();
+            alert(`${amount} coins distributed to ${userId}. Timestamp: ${timestamp}`);
+        });
+
+        document.getElementById("perform-transaction-button").addEventListener("click", () => {
+            const senderId = document.getElementById("sender").value;
+            const receiverId = document.getElementById("receiver").value;
+            const amount = parseFloat(document.getElementById("transaction-amount").value);
+
+            if (!senderId || !receiverId || isNaN(amount) || amount <= 0 || senderId === receiverId) {
+                alert("Invalid transaction details.");
+                return;
+            }
+
+            if ((users[senderId].balance || 0) < amount) {
+                alert("Sender does not have enough balance.");
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            users[senderId].balance -= amount;
+            users[receiverId].balance = (users[receiverId].balance || 0) + amount;
+            transactions.push({ sender: senderId, receiver: receiverId, amount, timestamp });
+            saveState();
+            displayUserBalances();
+            updateSupplyDisplay();
+            alert(`${amount} coins sent from ${senderId} to ${receiverId}. Timestamp: ${timestamp}`);
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadState();
+        });
+
+        function displayUserBalances() {
+            const userBalances = document.getElementById("user-balances");
+            userBalances.innerHTML = "";
+
+            if (Object.keys(users).length === 0) {
+                userBalances.innerHTML = "<li>No users available.</li>";
+                return;
+            }
+
+            for (const userId in users) {
+                const user = users[userId];
+                const listItem = document.createElement("li");
+                listItem.textContent = `User ID: ${userId}, Balance: ${user.balance || 0}`;
+                userBalances.appendChild(listItem);
+            }
+        }
+    </script>
+</body>
+</html>
