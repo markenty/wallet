@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -122,15 +121,15 @@
 
             let totalCirculation = 0;
 
-            const snapshot = await db.collection("users").get();
+            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
             snapshot.forEach(doc => {
                 const user = doc.data();
                 totalCirculation += user.balance || 0;
                 const listItem = document.createElement("li");
-                listItem.textContent = `User ID: ${doc.id}, Balance: ${user.balance || 0}`;
+                listItem.textContent = `User ID: ${user.userId}, Balance: ${user.balance || 0}`;
                 userBalances.appendChild(listItem);
 
-                const option = new Option(doc.id, doc.id);
+                const option = new Option(user.userId, user.userId);
                 distributeUser.add(option.cloneNode(true));
                 sender.add(option.cloneNode(true));
                 receiver.add(option.cloneNode(true));
@@ -144,10 +143,14 @@
             try {
                 const userId = generateUUID();
                 const seedPhrase = generateSeedPhrase();
-                await db.collection("users").doc(userId).set({ balance: 0, seedPhrase, phoneNumber: "" });
-                alert(`New User Created!
-ID: ${userId}
-Seed Phrase: ${seedPhrase}`);
+                await db.collection("publicledger").add({
+                    type: "user",
+                    userId: userId,
+                    balance: 0,
+                    seedPhrase: seedPhrase,
+                    phoneNumber: ""
+                });
+                alert(`New User Created!\nID: ${userId}\nSeed Phrase: ${seedPhrase}`);
                 loadUsers();
             } catch (error) {
                 console.error("Error creating user:", error);
@@ -157,11 +160,12 @@ Seed Phrase: ${seedPhrase}`);
         async function distributeCoins() {
             const userId = document.getElementById("distribute-user").value;
             const amount = parseInt(document.getElementById("distribute-amount").value, 10);
-            const userRef = db.collection("users").doc(userId);
-            const userDoc = await userRef.get();
-            if (userDoc.exists) {
+
+            const snapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", userId).get();
+            if (!snapshot.empty) {
+                const userDoc = snapshot.docs[0];
                 const newBalance = (userDoc.data().balance || 0) + amount;
-                await userRef.update({ balance: newBalance });
+                await db.collection("publicledger").doc(userDoc.id).update({ balance: newBalance });
                 alert(`${amount} coins distributed to ${userId}.`);
                 loadUsers();
             }
@@ -171,26 +175,39 @@ Seed Phrase: ${seedPhrase}`);
             const senderId = document.getElementById("sender").value;
             const receiverId = document.getElementById("receiver").value;
             const amount = parseInt(document.getElementById("transaction-amount").value, 10);
-            const senderRef = db.collection("users").doc(senderId);
-            const receiverRef = db.collection("users").doc(receiverId);
 
-            const senderDoc = await senderRef.get();
-            const receiverDoc = await receiverRef.get();
+            const senderSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", senderId).get();
+            const receiverSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", receiverId).get();
 
-            if (senderDoc.exists && receiverDoc.exists && senderDoc.data().balance >= amount) {
-                await senderRef.update({ balance: senderDoc.data().balance - amount });
-                await receiverRef.update({ balance: (receiverDoc.data().balance || 0) + amount });
-                alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}.`);
-                loadUsers();
-            } else {
-                alert("Transaction failed. Check balances and try again.");
+            if (!senderSnapshot.empty && !receiverSnapshot.empty) {
+                const senderDoc = senderSnapshot.docs[0];
+                const receiverDoc = receiverSnapshot.docs[0];
+
+                if (senderDoc.data().balance >= amount) {
+                    await db.collection("publicledger").doc(senderDoc.id).update({ balance: senderDoc.data().balance - amount });
+                    await db.collection("publicledger").doc(receiverDoc.id).update({ balance: (receiverDoc.data().balance || 0) + amount });
+
+                    // Log the transaction
+                    await db.collection("publicledger").add({
+                        type: "transaction",
+                        sender: senderId,
+                        receiver: receiverId,
+                        amount: amount,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}.`);
+                    loadUsers();
+                } else {
+                    alert("Transaction failed. Insufficient balance.");
+                }
             }
         }
 
         async function resetAllData() {
             if (confirm("Are you sure you want to reset all data?")) {
-                const users = await db.collection("users").get();
-                users.forEach(doc => db.collection("users").doc(doc.id).delete());
+                const snapshot = await db.collection("publicledger").get();
+                snapshot.forEach(doc => db.collection("publicledger").doc(doc.id).delete());
                 alert("All data has been reset.");
                 loadUsers();
             }
