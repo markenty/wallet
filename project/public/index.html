@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Ledger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Public Ledger</h1>
+    <div id="public-info">
+        <h2>Public Info</h2>
+        <p id="total-circulation">Total Circulation: 💰 x 0</p>
+        <div id="transaction-ledger">
+            <h3>Transaction Ledger</h3>
+            <ul></ul>
+        </div>
+    </div>
+
+    <div id="transaction-form">
+        <h2>Submit Transaction</h2>
+        <label for="sender">Sender:</label>
+        <input type="text" id="sender" placeholder="Sender ID"><br>
+        <label for="receiver">Receiver:</label>
+        <input type="text" id="receiver" placeholder="Receiver ID"><br>
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" placeholder="Amount"><br>
+        <button onclick="submitTransaction()">Submit</button>
+    </div>
+
+    <script src="ledger.js"></script>
+</body>
+</html>
