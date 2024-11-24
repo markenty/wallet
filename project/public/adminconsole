@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Admin Console</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        section {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #reset-button {
+            background-color: #ff4c4c;
+        }
+        #reset-button:hover {
+            background-color: #ff1a1a;
+        }
+    </style>
+</head>
+<body>
+    <h1>Unified Admin Console</h1>
+
+    <!-- Coin Management Section -->
+    <section>
+        <h2>Coin Management</h2>
+        <div>
+            <button onclick="createUser()">Create New User</button>
+            <p id="new-user-details" style="margin-top: 10px; font-weight: bold;"></p>
+        </div>
+        <h3>User Balances</h3>
+        <ul id="user-balances"></ul>
+        <h3>Total Supply</h3>
+        <p id="total-supply" style="font-weight: bold;"></p>
+        <p id="undistributed-supply" style="font-weight: bold;"></p>
+        <h3>Distribute Coins</h3>
+        <label for="distribute-user">Select User:</label>
+        <select id="distribute-user"></select>
+        <label for="distribute-amount">Amount:</label>
+        <input type="number" id="distribute-amount" placeholder="Enter amount to distribute">
+        <button onclick="distributeCoins()">Distribute</button>
+    </section>
+
+    <!-- Transaction Section -->
+    <section>
+        <h2>Perform Transactions</h2>
+        <label for="sender">Sender:</label>
+        <select id="sender"></select>
+        <label for="receiver">Receiver:</label>
+        <select id="receiver"></select>
+        <label for="transaction-amount">Amount:</label>
+        <input type="number" id="transaction-amount" placeholder="Enter amount to send">
+        <button onclick="performTransaction()">Send Coins</button>
+    </section>
+
+    <!-- Reset Section -->
+    <section>
+        <h2>Reset Blockchain and User Data</h2>
+        <p>Click the button below to completely reset all blockchain transactions, verified transactions, and user data. This action cannot be undone.</p>
+        <button id="reset-button" onclick="resetAllData()">Reset All Data</button>
+        <p id="reset-message" style="margin-top: 20px; font-weight: bold; color: green;"></p>
+    </section>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAk91lfAWMxvNFfoiDAFpoyJHTRh88s0nc",
+            authDomain: "publicledger-31ea9.firebaseapp.com",
+            projectId: "publicledger-31ea9",
+            storageBucket: "publicledger-31ea9.appspot.com",
+            messagingSenderId: "648981585684",
+            appId: "1:648981585684:web:ba30e335d599180ca7ac01",
+            measurementId: "G-6DGGC600JX"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
+
+        const totalSupplyLimit = 21000000;
+
+        async function loadUsers() {
+            const userBalances = document.getElementById("user-balances");
+            const distributeUser = document.getElementById("distribute-user");
+            const sender = document.getElementById("sender");
+            const receiver = document.getElementById("receiver");
+            userBalances.innerHTML = "";
+            distributeUser.innerHTML = "";
+            sender.innerHTML = "";
+            receiver.innerHTML = "";
+
+            let totalCirculation = 0;
+
+            const snapshot = await db.collection("users").get();
+            snapshot.forEach(doc => {
+                const user = doc.data();
+                totalCirculation += user.balance || 0;
+                const listItem = document.createElement("li");
+                listItem.textContent = `User ID: ${doc.id}, Balance: ${user.balance || 0}`;
+                userBalances.appendChild(listItem);
+
+                const option = new Option(doc.id, doc.id);
+                distributeUser.add(option.cloneNode(true));
+                sender.add(option.cloneNode(true));
+                receiver.add(option.cloneNode(true));
+            });
+
+            document.getElementById("total-supply").textContent = `Total Circulation: ${totalCirculation} / ${totalSupplyLimit}`;
+            document.getElementById("undistributed-supply").textContent = `Undistributed Supply: ${totalSupplyLimit - totalCirculation}`;
+        }
+
+        async function createUser() {
+            const userId = generateUUID();
+            const seedPhrase = generateSeedPhrase();
+            await db.collection("users").doc(userId).set({ balance: 0, seedPhrase, phoneNumber: "" });
+            alert(`New User Created!\nID: ${userId}\nSeed Phrase: ${seedPhrase}`);
+            loadUsers();
+        }
+
+        async function distributeCoins() {
+            const userId = document.getElementById("distribute-user").value;
+            const amount = parseInt(document.getElementById("distribute-amount").value, 10);
+            const userRef = db.collection("users").doc(userId);
+            const userDoc = await userRef.get();
+            if (userDoc.exists) {
+                const newBalance = (userDoc.data().balance || 0) + amount;
+                await userRef.update({ balance: newBalance });
+                alert(`${amount} coins distributed to ${userId}.`);
+                loadUsers();
+            }
+        }
+
+        async function performTransaction() {
+            const senderId = document.getElementById("sender").value;
+            const receiverId = document.getElementById("receiver").value;
+            const amount = parseInt(document.getElementById("transaction-amount").value, 10);
+            const senderRef = db.collection("users").doc(senderId);
+            const receiverRef = db.collection("users").doc(receiverId);
+
+            const senderDoc = await senderRef.get();
+            const receiverDoc = await receiverRef.get();
+
+            if (senderDoc.exists && receiverDoc.exists && senderDoc.data().balance >= amount) {
+                await senderRef.update({ balance: senderDoc.data().balance - amount });
+                await receiverRef.update({ balance: (receiverDoc.data().balance || 0) + amount });
+                alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}.`);
+                loadUsers();
+            } else {
+                alert("Transaction failed. Check balances and try again.");
+            }
+        }
+
+        async function resetAllData() {
+            const confirmReset = confirm("Are you sure you want to reset all data?");
+            if (confirmReset) {
+                const users = await db.collection("users").get();
+                users.forEach(doc => db.collection("users").doc(doc.id).delete());
+                alert("All data has been reset.");
+                loadUsers();
+            }
+        }
+
+        function generateSeedPhrase() {
+            const words = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
+            return Array.from({ length: 4 }, () => words[Math.floor(Math.random() * words.length)]).join(" ");
+        }
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = (Math.random() * 16) | 0,
+                      v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", loadUsers);
+    </script>
+</body>
+</html>
