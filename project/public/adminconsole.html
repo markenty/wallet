@@ -15,16 +15,6 @@
         section {
             margin-bottom: 20px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
-        }
         button {
             background-color: #4CAF50;
             color: white;
@@ -36,63 +26,18 @@
         button:hover {
             background-color: #45a049;
         }
-        #reset-button {
-            background-color: #ff4c4c;
-        }
-        #reset-button:hover {
-            background-color: #ff1a1a;
-        }
     </style>
 </head>
 <body>
     <h1>Admin Console</h1>
-
-    <!-- User Management Section -->
     <section>
-        <h2>User Management</h2>
-        <button onclick="createUser()">Create New User</button>
-        <h3>All Users</h3>
-        <ul id="user-list"></ul>
+        <h2>Test Firebase Connection</h2>
+        <button onclick="testFirebase()">Test Firebase</button>
+        <p id="firebase-status" style="font-weight: bold; color: green;"></p>
     </section>
-
-    <!-- Coin Management Section -->
-    <section>
-        <h2>Coin Management</h2>
-        <h3>Total Supply</h3>
-        <p id="total-supply" style="font-weight: bold;">Loading...</p>
-        <h3>Distribute Coins</h3>
-        <label for="distribute-user">Select User:</label>
-        <select id="distribute-user"></select>
-        <label for="distribute-amount">Amount:</label>
-        <input type="number" id="distribute-amount" placeholder="Enter amount to distribute">
-        <button onclick="distributeCoins()">Distribute</button>
-    </section>
-
-    <!-- Transactions Section -->
-    <section>
-        <h2>Perform Transactions</h2>
-        <label for="sender">Sender:</label>
-        <select id="sender"></select>
-        <label for="receiver">Receiver:</label>
-        <select id="receiver"></select>
-        <label for="transaction-amount">Amount:</label>
-        <input type="number" id="transaction-amount" placeholder="Enter amount to send">
-        <button onclick="performTransaction()">Send Coins</button>
-    </section>
-
-    <!-- Reset Section -->
-    <section>
-        <h2>Reset All Data</h2>
-        <p>This will delete all users and transactions. Proceed with caution.</p>
-        <button id="reset-button" onclick="resetAllData()">Reset Data</button>
-    </section>
-
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
-
     <script>
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAk91lfAWMxvNFfoiDAFpoyJHTRh88s0nc",
             authDomain: "publicledger-31ea9.firebaseapp.com",
@@ -103,165 +48,22 @@
             measurementId: "G-6DGGC600JX"
         };
 
-        // Initialize Firebase and Firestore
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore(app);
 
-        const totalSupplyLimit = 21000000;
-
-        async function loadAllData() {
-            await loadUsers();
-            await calculateTotalSupply();
-        }
-
-        // Create a new user
-        async function createUser() {
+        async function testFirebase() {
             try {
-                const userId = generateUUID();
-                const seedPhrase = generateSeedPhrase();
-                await db.collection("publicledger").add({
-                    type: "user",
-                    userId: userId,
-                    balance: 0,
-                    seedPhrase: seedPhrase,
-                    phoneNumber: ""
-                });
-                alert(`User created!\nID: ${userId}\nSeed Phrase: ${seedPhrase}`);
-                loadAllData();
-            } catch (error) {
-                console.error("Error creating user:", error);
-            }
-        }
-
-        // Load all users and populate dropdowns
-        async function loadUsers() {
-            const userList = document.getElementById("user-list");
-            const distributeUser = document.getElementById("distribute-user");
-            const sender = document.getElementById("sender");
-            const receiver = document.getElementById("receiver");
-
-            userList.innerHTML = "";
-            distributeUser.innerHTML = "";
-            sender.innerHTML = "";
-            receiver.innerHTML = "";
-
-            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
-            snapshot.forEach(doc => {
-                const user = doc.data();
-
-                // Add to user list
-                const li = document.createElement("li");
-                li.textContent = `User ID: ${user.userId}, Balance: ${user.balance}`;
-                userList.appendChild(li);
-
-                // Add to dropdowns
-                const option = new Option(user.userId, user.userId);
-                distributeUser.add(option.cloneNode(true));
-                sender.add(option.cloneNode(true));
-                receiver.add(option.cloneNode(true));
-            });
-        }
-
-        // Distribute coins to a user
-        async function distributeCoins() {
-            const userId = document.getElementById("distribute-user").value;
-            const amount = parseInt(document.getElementById("distribute-amount").value, 10);
-
-            if (!userId || isNaN(amount) || amount <= 0) {
-                alert("Invalid input");
-                return;
-            }
-
-            const snapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", userId).get();
-            if (!snapshot.empty) {
-                const userDoc = snapshot.docs[0];
-                const newBalance = (userDoc.data().balance || 0) + amount;
-                await db.collection("publicledger").doc(userDoc.id).update({ balance: newBalance });
-                alert(`${amount} coins distributed to ${userId}`);
-                loadAllData();
-            } else {
-                alert("User not found");
-            }
-        }
-
-        // Perform a transaction between two users
-        async function performTransaction() {
-            const senderId = document.getElementById("sender").value;
-            const receiverId = document.getElementById("receiver").value;
-            const amount = parseInt(document.getElementById("transaction-amount").value, 10);
-
-            if (!senderId || !receiverId || isNaN(amount) || amount <= 0) {
-                alert("Invalid input");
-                return;
-            }
-
-            const senderSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", senderId).get();
-            const receiverSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", receiverId).get();
-
-            if (!senderSnapshot.empty && !receiverSnapshot.empty) {
-                const senderDoc = senderSnapshot.docs[0];
-                const receiverDoc = receiverSnapshot.docs[0];
-
-                if (senderDoc.data().balance >= amount) {
-                    await db.collection("publicledger").doc(senderDoc.id).update({ balance: senderDoc.data().balance - amount });
-                    await db.collection("publicledger").doc(receiverDoc.id).update({ balance: (receiverDoc.data().balance || 0) + amount });
-
-                    // Log the transaction
-                    await db.collection("publicledger").add({
-                        type: "transaction",
-                        sender: senderId,
-                        receiver: receiverId,
-                        amount: amount,
-                        timestamp: new Date().toISOString()
-                    });
-
-                    alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}`);
-                    loadAllData();
-                } else {
-                    alert("Insufficient balance");
-                }
-            } else {
-                alert("Sender or receiver not found");
-            }
-        }
-
-        // Calculate total supply
-        async function calculateTotalSupply() {
-            let totalCirculation = 0;
-
-            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
-            snapshot.forEach(doc => {
-                totalCirculation += doc.data().balance || 0;
-            });
-
-            document.getElementById("total-supply").textContent = `Total Circulation: ${totalCirculation} / ${totalSupplyLimit}`;
-        }
-
-        // Reset all data
-        async function resetAllData() {
-            if (confirm("Are you sure you want to reset all data?")) {
+                console.log("Testing Firebase connection...");
                 const snapshot = await db.collection("publicledger").get();
-                snapshot.forEach(doc => db.collection("publicledger").doc(doc.id).delete());
-                alert("All data has been reset");
-                loadAllData();
+                let data = [];
+                snapshot.forEach(doc => data.push(doc.data()));
+                console.log("Firestore data retrieved:", data);
+                document.getElementById("firebase-status").textContent = "Firebase is working!";
+            } catch (error) {
+                console.error("Error testing Firebase:", error);
+                document.getElementById("firebase-status").textContent = "Firebase test failed. Check console.";
             }
         }
-
-        // Utility functions
-        function generateSeedPhrase() {
-            const words = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
-            return Array.from({ length: 4 }, () => words[Math.floor(Math.random() * words.length)]).join(" ");
-        }
-
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3) | 0x8;
-                return v.toString(16);
-            });
-        }
-
-        // Load data on page load
-        document.addEventListener("DOMContentLoaded", loadAllData);
     </script>
 </body>
 </html>
