@@ -47,18 +47,19 @@
 <body>
     <h1>Admin Console</h1>
 
+    <!-- User Management Section -->
+    <section>
+        <h2>User Management</h2>
+        <button onclick="createUser()">Create New User</button>
+        <h3>All Users</h3>
+        <ul id="user-list"></ul>
+    </section>
+
     <!-- Coin Management Section -->
     <section>
         <h2>Coin Management</h2>
-        <div>
-            <button onclick="createUser()">Create New User</button>
-            <p id="new-user-details" style="margin-top: 10px; font-weight: bold;"></p>
-        </div>
-        <h3>User Balances</h3>
-        <ul id="user-balances"></ul>
         <h3>Total Supply</h3>
-        <p id="total-supply" style="font-weight: bold;"></p>
-        <p id="undistributed-supply" style="font-weight: bold;"></p>
+        <p id="total-supply" style="font-weight: bold;">Loading...</p>
         <h3>Distribute Coins</h3>
         <label for="distribute-user">Select User:</label>
         <select id="distribute-user"></select>
@@ -67,7 +68,7 @@
         <button onclick="distributeCoins()">Distribute</button>
     </section>
 
-    <!-- Transaction Section -->
+    <!-- Transactions Section -->
     <section>
         <h2>Perform Transactions</h2>
         <label for="sender">Sender:</label>
@@ -81,10 +82,9 @@
 
     <!-- Reset Section -->
     <section>
-        <h2>Reset Blockchain and User Data</h2>
-        <p>Click the button below to completely reset all blockchain transactions, verified transactions, and user data. This action cannot be undone.</p>
-        <button id="reset-button" onclick="resetAllData()">Reset All Data</button>
-        <p id="reset-message" style="margin-top: 20px; font-weight: bold; color: green;"></p>
+        <h2>Reset All Data</h2>
+        <p>This will delete all users and transactions. Proceed with caution.</p>
+        <button id="reset-button" onclick="resetAllData()">Reset Data</button>
     </section>
 
     <!-- Firebase SDK -->
@@ -109,36 +109,12 @@
 
         const totalSupplyLimit = 21000000;
 
-        async function loadUsers() {
-            const userBalances = document.getElementById("user-balances");
-            const distributeUser = document.getElementById("distribute-user");
-            const sender = document.getElementById("sender");
-            const receiver = document.getElementById("receiver");
-            userBalances.innerHTML = "";
-            distributeUser.innerHTML = "";
-            sender.innerHTML = "";
-            receiver.innerHTML = "";
-
-            let totalCirculation = 0;
-
-            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
-            snapshot.forEach(doc => {
-                const user = doc.data();
-                totalCirculation += user.balance || 0;
-                const listItem = document.createElement("li");
-                listItem.textContent = `User ID: ${user.userId}, Balance: ${user.balance || 0}`;
-                userBalances.appendChild(listItem);
-
-                const option = new Option(user.userId, user.userId);
-                distributeUser.add(option.cloneNode(true));
-                sender.add(option.cloneNode(true));
-                receiver.add(option.cloneNode(true));
-            });
-
-            document.getElementById("total-supply").textContent = `Total Circulation: ${totalCirculation} / ${totalSupplyLimit}`;
-            document.getElementById("undistributed-supply").textContent = `Undistributed Supply: ${totalSupplyLimit - totalCirculation}`;
+        async function loadAllData() {
+            await loadUsers();
+            await calculateTotalSupply();
         }
 
+        // Create a new user
         async function createUser() {
             try {
                 const userId = generateUUID();
@@ -150,31 +126,74 @@
                     seedPhrase: seedPhrase,
                     phoneNumber: ""
                 });
-                alert(`New User Created!\nID: ${userId}\nSeed Phrase: ${seedPhrase}`);
-                loadUsers();
+                alert(`User created!\nID: ${userId}\nSeed Phrase: ${seedPhrase}`);
+                loadAllData();
             } catch (error) {
                 console.error("Error creating user:", error);
             }
         }
 
+        // Load all users and populate dropdowns
+        async function loadUsers() {
+            const userList = document.getElementById("user-list");
+            const distributeUser = document.getElementById("distribute-user");
+            const sender = document.getElementById("sender");
+            const receiver = document.getElementById("receiver");
+
+            userList.innerHTML = "";
+            distributeUser.innerHTML = "";
+            sender.innerHTML = "";
+            receiver.innerHTML = "";
+
+            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
+            snapshot.forEach(doc => {
+                const user = doc.data();
+
+                // Add to user list
+                const li = document.createElement("li");
+                li.textContent = `User ID: ${user.userId}, Balance: ${user.balance}`;
+                userList.appendChild(li);
+
+                // Add to dropdowns
+                const option = new Option(user.userId, user.userId);
+                distributeUser.add(option.cloneNode(true));
+                sender.add(option.cloneNode(true));
+                receiver.add(option.cloneNode(true));
+            });
+        }
+
+        // Distribute coins to a user
         async function distributeCoins() {
             const userId = document.getElementById("distribute-user").value;
             const amount = parseInt(document.getElementById("distribute-amount").value, 10);
+
+            if (!userId || isNaN(amount) || amount <= 0) {
+                alert("Invalid input");
+                return;
+            }
 
             const snapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", userId).get();
             if (!snapshot.empty) {
                 const userDoc = snapshot.docs[0];
                 const newBalance = (userDoc.data().balance || 0) + amount;
                 await db.collection("publicledger").doc(userDoc.id).update({ balance: newBalance });
-                alert(`${amount} coins distributed to ${userId}.`);
-                loadUsers();
+                alert(`${amount} coins distributed to ${userId}`);
+                loadAllData();
+            } else {
+                alert("User not found");
             }
         }
 
+        // Perform a transaction between two users
         async function performTransaction() {
             const senderId = document.getElementById("sender").value;
             const receiverId = document.getElementById("receiver").value;
             const amount = parseInt(document.getElementById("transaction-amount").value, 10);
+
+            if (!senderId || !receiverId || isNaN(amount) || amount <= 0) {
+                alert("Invalid input");
+                return;
+            }
 
             const senderSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", senderId).get();
             const receiverSnapshot = await db.collection("publicledger").where("type", "==", "user").where("userId", "==", receiverId).get();
@@ -196,23 +215,39 @@
                         timestamp: new Date().toISOString()
                     });
 
-                    alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}.`);
-                    loadUsers();
+                    alert(`Transaction complete: ${amount} coins from ${senderId} to ${receiverId}`);
+                    loadAllData();
                 } else {
-                    alert("Transaction failed. Insufficient balance.");
+                    alert("Insufficient balance");
                 }
+            } else {
+                alert("Sender or receiver not found");
             }
         }
 
+        // Calculate total supply
+        async function calculateTotalSupply() {
+            let totalCirculation = 0;
+
+            const snapshot = await db.collection("publicledger").where("type", "==", "user").get();
+            snapshot.forEach(doc => {
+                totalCirculation += doc.data().balance || 0;
+            });
+
+            document.getElementById("total-supply").textContent = `Total Circulation: ${totalCirculation} / ${totalSupplyLimit}`;
+        }
+
+        // Reset all data
         async function resetAllData() {
             if (confirm("Are you sure you want to reset all data?")) {
                 const snapshot = await db.collection("publicledger").get();
                 snapshot.forEach(doc => db.collection("publicledger").doc(doc.id).delete());
-                alert("All data has been reset.");
-                loadUsers();
+                alert("All data has been reset");
+                loadAllData();
             }
         }
 
+        // Utility functions
         function generateSeedPhrase() {
             const words = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
             return Array.from({ length: 4 }, () => words[Math.floor(Math.random() * words.length)]).join(" ");
@@ -225,7 +260,8 @@
             });
         }
 
-        document.addEventListener("DOMContentLoaded", loadUsers);
+        // Load data on page load
+        document.addEventListener("DOMContentLoaded", loadAllData);
     </script>
 </body>
 </html>
