@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Console</title>
+    <title>Stark-Level Admin Console</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,20 +26,27 @@
         button:hover {
             background-color: #45a049;
         }
+        #create-status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h1>Admin Console</h1>
+    <h1>Stark-Level Admin Console</h1>
 
+    <!-- User Management -->
     <section>
-        <h2>Test Firebase Connection</h2>
-        <button onclick="testFirebase()">Test Connection</button>
-        <p id="firebase-status" style="font-weight: bold; color: green;"></p>
+        <h2>Create User</h2>
+        <button id="create-user-btn">Create New User</button>
+        <p id="create-status"></p>
     </section>
 
+    <!-- Firebase SDK -->
     <script type="module">
+        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, addDoc, collection } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -52,24 +59,52 @@
             measurementId: "G-6DGGC600JX"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase and Firestore
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        async function testFirebase() {
+        // Generate a unique seed phrase
+        function generateSeedPhrase() {
+            const words = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
+            return Array.from({ length: 4 }, () => words[Math.floor(Math.random() * words.length)]).join(" ");
+        }
+
+        // Generate a unique UUID
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = (Math.random() * 16) | 0,
+                      v = c === 'x' ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        }
+
+        // Create a new user
+        async function createUser() {
+            const statusElement = document.getElementById("create-status");
+            statusElement.textContent = "Creating user...";
+
             try {
-                const querySnapshot = await getDocs(collection(db, "publicledger"));
-                const data = [];
-                querySnapshot.forEach((doc) => {
-                    data.push({ id: doc.id, ...doc.data() });
+                const userId = generateUUID();
+                const seedPhrase = generateSeedPhrase();
+
+                await addDoc(collection(db, "publicledger"), {
+                    type: "user",
+                    userId: userId,
+                    balance: 0,
+                    seedPhrase: seedPhrase,
+                    phoneNumber: ""
                 });
-                console.log("Firestore Data:", data);
-                document.getElementById("firebase-status").textContent = "Firebase connected successfully!";
+
+                statusElement.textContent = `User created! ID: ${userId}`;
+                console.log(`User created successfully! ID: ${userId}`);
             } catch (error) {
-                console.error("Error connecting to Firestore:", error);
-                document.getElementById("firebase-status").textContent = "Firebase connection failed.";
+                statusElement.textContent = "Error creating user. Check console.";
+                console.error("Error creating user:", error);
             }
         }
+
+        // Attach event listener to button
+        document.getElementById("create-user-btn").addEventListener("click", createUser);
     </script>
 </body>
 </html>
