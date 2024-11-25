@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stark-Level Admin Console</title>
+    <title>Admin Console</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -33,9 +33,9 @@
     </style>
 </head>
 <body>
-    <h1>Stark-Level Admin Console</h1>
+    <h1>Admin Console</h1>
 
-    <!-- User Management -->
+    <!-- User Management Section -->
     <section>
         <h2>Create User</h2>
         <button id="create-user-btn">Create New User</button>
@@ -43,11 +43,9 @@
     </section>
 
     <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, addDoc, collection } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+    <script>
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAk91lfAWMxvNFfoiDAFpoyJHTRh88s0nc",
@@ -59,9 +57,9 @@
             measurementId: "G-6DGGC600JX"
         };
 
-        // Initialize Firebase and Firestore
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
 
         // Generate a unique seed phrase
         function generateSeedPhrase() {
@@ -87,7 +85,7 @@
                 const userId = generateUUID();
                 const seedPhrase = generateSeedPhrase();
 
-                await addDoc(collection(db, "publicledger"), {
+                await db.collection("publicledger").add({
                     type: "user",
                     userId: userId,
                     balance: 0,
