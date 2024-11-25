@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Console</title>
+    <title>Firebase Read/Write Tester</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,25 +26,31 @@
         button:hover {
             background-color: #45a049;
         }
-        #status {
+        #output {
             margin-top: 10px;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>Admin Console</h1>
+    <h1>Firebase Read/Write Tester</h1>
 
-    <!-- User Management Section -->
+    <!-- Write Section -->
     <section>
-        <h2>Create User</h2>
-        <button id="create-user-btn">Create New User</button>
-        <p id="status"></p>
+        <h2>Write Test</h2>
+        <button id="write-btn">Write Test Data</button>
+        <p id="write-output"></p>
+    </section>
+
+    <!-- Read Section -->
+    <section>
+        <h2>Read Test</h2>
+        <button id="read-btn">Read Data</button>
+        <div id="read-output"></div>
     </section>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
     <script>
         // Firebase Configuration
@@ -61,72 +67,47 @@
         // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore(app);
-        const auth = firebase.auth(app);
 
-        // Sign in as Admin
-        async function signInAsAdmin() {
-            const email = prompt("Enter admin email:");
-            const password = prompt("Enter admin password:");
+        // Write Test Data
+        async function writeTestData() {
+            const writeOutput = document.getElementById("write-output");
+            writeOutput.textContent = "Writing test data...";
             try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                console.log("Admin signed in:", userCredential.user.email);
-                document.getElementById("status").textContent = `Signed in as: ${userCredential.user.email}`;
-            } catch (error) {
-                console.error("Error signing in:", error);
-                alert("Failed to sign in. Check your credentials.");
-                document.getElementById("status").textContent = "Sign-in failed.";
-            }
-        }
-
-        // Generate a unique seed phrase
-        function generateSeedPhrase() {
-            const words = ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"];
-            return Array.from({ length: 4 }, () => words[Math.floor(Math.random() * words.length)]).join(" ");
-        }
-
-        // Generate a unique UUID
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                const r = (Math.random() * 16) | 0,
-                      v = c === 'x' ? r : (r & 0x3) | 0x8;
-                return v.toString(16);
-            });
-        }
-
-        // Create a new user
-        async function createUser() {
-            const statusElement = document.getElementById("status");
-            statusElement.textContent = "Creating user...";
-
-            try {
-                const userId = generateUUID();
-                const seedPhrase = generateSeedPhrase();
-
-                // Add user document to Firestore
-                await db.collection("publicledger").add({
-                    type: "user",
-                    userId: userId,
-                    balance: 0,
-                    seedPhrase: seedPhrase,
-                    phoneNumber: ""
+                const docRef = await db.collection("publicledger").add({
+                    testField: "Test Value",
+                    timestamp: new Date().toISOString()
                 });
-
-                statusElement.textContent = `User created! ID: ${userId}`;
-                console.log(`User created successfully! ID: ${userId}`);
+                writeOutput.textContent = `Write successful! Document ID: ${docRef.id}`;
+                console.log("Write successful:", docRef.id);
             } catch (error) {
-                statusElement.textContent = "Error creating user. Check console.";
-                console.error("Error creating user:", error);
+                writeOutput.textContent = "Write failed. Check console for details.";
+                console.error("Write error:", error);
             }
         }
 
-        // Attach event listeners
-        document.addEventListener("DOMContentLoaded", () => {
-            // Sign in when the page loads
-            signInAsAdmin();
+        // Read Test Data
+        async function readTestData() {
+            const readOutput = document.getElementById("read-output");
+            readOutput.innerHTML = "Reading data...";
+            try {
+                const snapshot = await db.collection("publicledger").get();
+                readOutput.innerHTML = ""; // Clear previous results
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const div = document.createElement("div");
+                    div.textContent = `Document ID: ${doc.id}, Data: ${JSON.stringify(data)}`;
+                    readOutput.appendChild(div);
+                });
+                console.log("Read successful:", snapshot.docs);
+            } catch (error) {
+                readOutput.innerHTML = "Read failed. Check console for details.";
+                console.error("Read error:", error);
+            }
+        }
 
-            // Attach Create User button event
-            document.getElementById("create-user-btn").addEventListener("click", createUser);
-        });
+        // Attach Event Listeners
+        document.getElementById("write-btn").addEventListener("click", writeTestData);
+        document.getElementById("read-btn").addEventListener("click", readTestData);
     </script>
 </body>
 </html>
