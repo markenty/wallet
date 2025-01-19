@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fleet Interface with User Accounts and Fleet Feed</title>
   <style>
     body {
@@ -131,18 +130,29 @@
   </style>
 </head>
 <body>
+  <!-- Overlay for Modal -->
   <div class="overlay" id="overlay">
     <div class="modal-content"></div>
   </div>
-  <div class="fleet-container" id="fleetContainer"></div>
-  <div class="add-fleet-btn" id="addFleetBtn">+</div>
-  <div class="user-avatar" id="userAvatar">
-    <img src="https://via.placeholder.com/60" alt="User Avatar">
-  </div>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
+  <!-- Fleet Display Container -->
+  <div class="fleet-container" id="fleetContainer"></div>
+
+  <!-- Add Fleet Button -->
+  <div class="add-fleet-btn" id="addFleetBtn">+</div>
+
+  <!-- User Avatar -->
+  <div class="user-avatar" id="userAvatar">
+    <img src="https://via.placeholder.com/60" alt="User Avatar" />
+  </div>
+
+  <script type="module">
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc, updateDoc } 
+  from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+
+    // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
       authDomain: "publicledger-31ea9.firebaseapp.com",
@@ -152,13 +162,14 @@
       appId: "1:648981585684:web:45d586d38fe547dea7ac01",
       measurementId: "G-9HMX2CDY1W"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // Constants
     const USERS_COLLECTION = "users";
     const FLEETS_COLLECTION = "fleets";
 
+    // DOM Elements
     const fleetContainer = document.getElementById("fleetContainer");
     const addFleetBtn = document.getElementById("addFleetBtn");
     const userAvatar = document.getElementById("userAvatar");
@@ -172,145 +183,231 @@
       password: null
     };
 
-    // Fetch all users from Firebase
-    async function fetchAllUsers() {
-      const querySnapshot = await getDocs(collection(db, USERS_COLLECTION));
-      const users = [];
-      querySnapshot.forEach(doc => {
-        users.push({ id: doc.id, ...doc.data() });
-      });
-      return users;
-    }
-
-    // Save user profile to Firebase
-    async function saveUserProfileToFirebase(userProfile) {
-      const userId = userProfile.userId;
-      await setDoc(doc(db, USERS_COLLECTION, userId), userProfile);
-      localStorage.setItem("userId", userId); // Persist userId locally
-      console.log("User profile saved.");
-    }
-
-    // Load and display user profile
-    async function loadUserProfile() {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
-        currentUser = {
-          userId: "user_" + Date.now(),
-          avatar: "https://via.placeholder.com/60",
-          username: "Anonymous",
-          password: null
-        };
-        await saveUserProfileToFirebase(currentUser);
+    // User Management Functions
+    async function loginUser(userId, password) {
+      const docRef = doc(db, USERS_COLLECTION, userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists() && docSnap.data().password === password) {
+        currentUser = { userId, ...docSnap.data() };
+        localStorage.setItem("userId", userId);
+        console.log("User logged in:", currentUser.username);
       } else {
-        const docRef = doc(db, USERS_COLLECTION, userId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          currentUser = docSnap.data();
-        } else {
-          console.warn("User not found, creating new user.");
-          currentUser = {
-            userId: "user_" + Date.now(),
-            avatar: "https://via.placeholder.com/60",
-            username: "Anonymous",
-            password: null
-          };
-          await saveUserProfileToFirebase(currentUser);
-        }
+        alert("Invalid credentials.");
       }
-      userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
     }
 
-    // Open user account modal
+    async function registerUser(username, password) {
+      const userId = `user_${Date.now()}`;
+      const newUser = { userId, username, password, avatar: "https://via.placeholder.com/60" };
+      await setDoc(doc(db, USERS_COLLECTION, userId), newUser);
+      console.log("New user registered:", username);
+      await loginUser(userId, password);
+    }
+
+    function logoutUser() {
+      currentUser = null;
+      localStorage.removeItem("userId");
+      console.log("User logged out.");
+    }
+
+    // Modal behavior for User Avatar click
     userAvatar.addEventListener("click", async () => {
-      const allUsers = await fetchAllUsers();
-      const userOptions = allUsers.map(user => `<option value="${user.userId}">${user.username}</option>`).join("");
+      const isLoggedIn = currentUser && currentUser.userId;
+      if (isLoggedIn) {
+        modalContent.innerHTML = `
+          <h1>Account Management</h1>
+          <p>Username: ${currentUser.username}</p>
+<a href="#" id="changeUsernameLink">Change Username</a>
+<div id="changeUsernameFields" style="display:none;">
+  <input type="text" id="newUsernameInput" placeholder="New Username" required />
+  <button id="saveUsernameBtn">Save Username</button>
+</div>
+<p><img src="${currentUser.avatar}" alt="User Avatar" width="50"/></p>
+<a href="#" id="changeAvatarLink">Change Avatar</a>
+<div id="changeAvatarFields" style="display:none;">
+  <input type="file" id="newAvatarInput" accept="image/*" />
+  <button id="saveAvatarBtn">Save Avatar</button>
+</div>
+<p>User ID: ${currentUser.userId}</p>
+          <a href="#" id="changePasswordLink">Change Password</a>
+          <div id="changePasswordFields" style="display:none;">
+            <input type="password" id="currentPasswordInput" placeholder="Current Password" required />
+            <input type="password" id="newPasswordInput" placeholder="New Password" required />
+            <button id="savePasswordBtn">Save Password</button>
+          </div>
+          <button id="switchAccountBtn">Add/Switch Account</button>
+          <select id="accountSwitchSelect" style="display:none;"></select>
+          <button id="logoutBtn">Logout</button>
+        `;
+        overlay.style.display = "flex";
+// Toggle display of Change Username fields
+document.getElementById("changeUsernameLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  const unameFields = document.getElementById("changeUsernameFields");
+  unameFields.style.display = unameFields.style.display === "none" ? "block" : "none";
+});
 
-      modalContent.innerHTML = `
-        <h1>User Account Management</h1>
-        <form id="profileForm">
-          <label for="usernameInput">Username:</label>
-          <input type="text" id="usernameInput" value="${currentUser.username}" required />
-          <label for="passwordInput">Password:</label>
-          <input type="password" id="passwordInput" value="${currentUser.password || ""}" />
-          <label for="avatarInput">Avatar:</label>
-          <input type="file" id="avatarInput" accept="image/*" />
-          <button type="submit">Save</button>
-        </form>
-        <hr />
-        <h2>Switch Account</h2>
-        <select id="switchAccountSelect">
-          <option disabled selected>Choose an account</option>
-          ${userOptions}
-        </select>
-        <button id="switchAccountButton">Switch</button>
-        <hr />
-        <h2>Add New Account</h2>
-        <button id="addAccountButton">Add Account</button>
-      `;
-      overlay.style.display = "flex";
+// Save new username and update Firestore
+document.getElementById("saveUsernameBtn").addEventListener("click", async () => {
+  const newUsername = document.getElementById("newUsernameInput").value.trim();
+  if(newUsername) {
+    await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+      ...currentUser,
+      username: newUsername
+    });
+    currentUser.username = newUsername;
+    alert("Username updated.");
+    // Optionally update UI immediately without closing modal
+    document.querySelector("p").innerText = `Username: ${currentUser.username}`;
+    document.getElementById("changeUsernameFields").style.display = "none";
+  } else {
+    alert("Please enter a valid username.");
+  }
+});
+           // Change Avatar Events
+// Change Avatar Events
+document.getElementById("changeAvatarLink").addEventListener("click", (e) => {
+  e.preventDefault();
+  const avatarFields = document.getElementById("changeAvatarFields");
+  avatarFields.style.display = avatarFields.style.display === "none" ? "block" : "none";
+});
 
-      const profileForm = document.getElementById("profileForm");
-      profileForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const usernameInput = document.getElementById("usernameInput").value;
-        const passwordInput = document.getElementById("passwordInput").value;
-        const avatarInput = document.getElementById("avatarInput").files[0];
+document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("newAvatarInput");
+  const file = fileInput.files[0];
+  if (!file) {
+    alert("Please select an image file.");
+    return;
+  }
 
-        if (avatarInput) {
-          const reader = new FileReader();
-          reader.onload = async (event) => {
-            currentUser = {
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    const newAvatar = event.target.result;
+    console.log("New avatar data read:", newAvatar.substring(0, 50) + "..."); // Debug log
+
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, currentUser.userId);
+      await updateDoc(userDocRef, { avatar: newAvatar });
+      currentUser.avatar = newAvatar;
+      alert("Avatar updated.");
+
+      // Update displayed avatar
+      const mainAvatarImg = userAvatar.querySelector("img");
+      if (mainAvatarImg) {
+        mainAvatarImg.src = newAvatar;
+      }
+
+      document.getElementById("changeAvatarFields").style.display = "none";
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      alert("Failed to update avatar. Please try again.");
+    }
+  };
+
+  reader.onerror = (error) => {
+    console.error("FileReader error:", error);
+    alert("Error reading file.");
+  };
+
+  reader.readAsDataURL(file);
+});
+
+        document.getElementById("changePasswordLink").addEventListener("click", (e) => {
+          e.preventDefault();
+          const fields = document.getElementById("changePasswordFields");
+          fields.style.display = fields.style.display === "none" ? "block" : "none";
+        });
+
+        document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+          const currentPwd = document.getElementById("currentPasswordInput").value;
+          const newPwd = document.getElementById("newPasswordInput").value;
+          if (currentPwd === currentUser.password) {
+            await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
               ...currentUser,
-              username: usernameInput,
-              password: passwordInput,
-              avatar: event.target.result
-            };
-            await saveUserProfileToFirebase(currentUser);
-            loadUserProfile();
+              password: newPwd
+            });
+            currentUser.password = newPwd;
+            alert("Password updated.");
+          } else {
+            alert("Current password is incorrect.");
+          }
+        });
+
+        const switchBtn = document.getElementById("switchAccountBtn");
+        const accountSelect = document.getElementById("accountSwitchSelect");
+        switchBtn.addEventListener("click", async () => {
+          accountSelect.style.display = accountSelect.style.display === "none" ? "block" : "none";
+          if(accountSelect.style.display === "block") {
+            const allUsers = await (async () => {
+              const snapshot = await getDocs(collection(db, USERS_COLLECTION));
+              const users = [];
+              snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+              return users;
+            })();
+            accountSelect.innerHTML = `<option disabled selected>Select Account</option>`;
+            allUsers.forEach(user => {
+              accountSelect.innerHTML += `<option value="${user.userId}">${user.username}</option>`;
+            });
+          } else {
+            accountSelect.innerHTML = "";
+          }
+        });
+
+        accountSelect.addEventListener("change", async (e) => {
+          const selectedUserId = e.target.value;
+          const docSnap = await getDoc(doc(db, USERS_COLLECTION, selectedUserId));
+          if(docSnap.exists()) {
+            currentUser = docSnap.data();
+            localStorage.setItem("userId", selectedUserId);
+            alert(`Switched to ${currentUser.username}`);
             overlay.style.display = "none";
-          };
-          reader.readAsDataURL(avatarInput);
-        } else {
-          currentUser = {
-            ...currentUser,
-            username: usernameInput,
-            password: passwordInput
-          };
-          await saveUserProfileToFirebase(currentUser);
-          loadUserProfile();
-          overlay.style.display = "none";
-        }
-      });
+          } else {
+            alert("Account not found.");
+          }
+        });
 
-      document.getElementById("switchAccountButton").addEventListener("click", async () => {
-        const selectedUserId = document.getElementById("switchAccountSelect").value;
-        const docRef = doc(db, USERS_COLLECTION, selectedUserId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          currentUser = docSnap.data();
-          localStorage.setItem("userId", selectedUserId);
-          loadUserProfile();
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+          logoutUser();
           overlay.style.display = "none";
-        } else {
-          alert("Account not found.");
-        }
-      });
-
-      document.getElementById("addAccountButton").addEventListener("click", async () => {
-        currentUser = {
-          userId: "user_" + Date.now(),
-          avatar: "https://via.placeholder.com/60",
-          username: "New User",
-          password: null
-        };
-        await saveUserProfileToFirebase(currentUser);
-        localStorage.setItem("userId", currentUser.userId);
-        loadUserProfile();
-        overlay.style.display = "none";
-      });
+        });
+      } else {
+        modalContent.innerHTML = `
+          <h1>Login or Register</h1>
+          <form id="loginForm">
+            <input type="text" id="loginUserId" placeholder="User ID" required />
+            <input type="password" id="loginPassword" placeholder="Password" required />
+            <button type="submit">Login</button>
+          </form>
+          <hr />
+          <form id="registerForm">
+            <input type="text" id="registerUsername" placeholder="Choose Username" required />
+            <input type="password" id="registerPassword" placeholder="Choose Password" required />
+            <button type="submit">Register</button>
+          </form>
+        `;
+        overlay.style.display = "flex";
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const userId = document.getElementById("loginUserId").value;
+          const password = document.getElementById("loginPassword").value;
+          await loginUser(userId, password);
+          overlay.style.display = "none";
+        });
+        document.getElementById("registerForm").addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const username = document.getElementById("registerUsername").value;
+          const password = document.getElementById("registerPassword").value;
+          await registerUser(username, password);
+          overlay.style.display = "none";
+        });
+      }
     });
 
-    // Fetch fleets from Firebase
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+
+    // Fleet Management Functions
     async function fetchFleets() {
       const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
       const fleets = [];
@@ -320,19 +417,20 @@
       return fleets;
     }
 
-    // Render fleet
     function renderFleet(fleet) {
       const fleetItem = document.createElement("div");
       fleetItem.className = "fleet-item";
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "delete-btn";
-      deleteBtn.textContent = "Delete";
-      deleteBtn.addEventListener("click", async () => {
-        await deleteDoc(doc(db, FLEETS_COLLECTION, fleet.id));
-        loadFleets(); // Reload fleets
-      });
-      fleetItem.appendChild(deleteBtn);
+      if (fleet.userId === currentUser.userId) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", async () => {
+          await deleteDoc(doc(db, FLEETS_COLLECTION, fleet.id));
+          loadFleets();
+        });
+        fleetItem.appendChild(deleteBtn);
+      }
 
       const userOverlay = document.createElement("div");
       userOverlay.className = "user-info-overlay";
@@ -363,14 +461,94 @@
       fleetContainer.appendChild(fleetItem);
     }
 
-    // Load and render fleets
     async function loadFleets() {
       fleetContainer.innerHTML = "";
       const fleets = await fetchFleets();
       fleets.forEach(renderFleet);
     }
 
-    // Initialize
+    async function loadUserProfile() {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        currentUser = {
+          userId: "user_" + Date.now(),
+          avatar: "https://via.placeholder.com/60",
+          username: "Anonymous",
+          password: null
+        };
+        await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), currentUser);
+        localStorage.setItem("userId", currentUser.userId);
+      } else {
+        const docRef = doc(db, USERS_COLLECTION, userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          currentUser = docSnap.data();
+        } else {
+          currentUser = {
+            userId: "user_" + Date.now(),
+            avatar: "https://via.placeholder.com/60",
+            username: "Anonymous",
+            password: null
+          };
+          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), currentUser);
+          localStorage.setItem("userId", currentUser.userId);
+        }
+      }
+      userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
+    }
+
+    async function addFleetToFirestore(fleetData) {
+      await addDoc(collection(db, FLEETS_COLLECTION), {
+        ...fleetData,
+        userId: currentUser.userId,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        createdAt: Date.now()
+      });
+    }
+
+    addFleetBtn.addEventListener("click", () => {
+      modalContent.innerHTML = `
+        <h1>Upload Your Fleet</h1>
+        <form id="uploadForm">
+          <input type="file" id="fileInput" accept="image/*,video/*" required />
+          <input type="text" id="titleInput" placeholder="Title" required />
+          <textarea id="descriptionInput" placeholder="Description"></textarea>
+          <button type="submit">Upload</button>
+        </form>
+      `;
+      overlay.style.display = "flex";
+
+      document.getElementById("uploadForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById("fileInput");
+        const titleInput = document.getElementById("titleInput").value;
+        const descriptionInput = document.getElementById("descriptionInput").value;
+        const file = fileInput.files[0];
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const fleetData = {
+              title: titleInput,
+              description: descriptionInput,
+              type: file.type,
+              data: event.target.result
+            };
+            addFleetToFirestore(fleetData).then(() => {
+              loadFleets();
+              overlay.style.display = "none";
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+
     window.onload = async () => {
       await loadUserProfile();
       await loadFleets();
