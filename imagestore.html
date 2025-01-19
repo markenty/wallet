@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Upload Test</title>
+</head>
+<body>
+  <h1>Upload Image to GitHub</h1>
+  <input type="file" id="fileInput" accept="image/*">
+  <button id="uploadBtn">Upload</button>
+  <div id="output"></div>
+
+  <script>
+    const REPO = "your-username/your-repository"; // Replace with your repo name
+    const BRANCH = "main"; // The branch where files will be uploaded
+    const TOKEN = "your_personal_access_token"; // Replace with your GitHub token
+
+    const outputDiv = document.getElementById("output");
+
+    function logMessage(message) {
+      const log = document.createElement("p");
+      log.textContent = message;
+      outputDiv.appendChild(log);
+    }
+
+    async function uploadImageToGitHub(imageFile) {
+      const fileName = imageFile.name; // File name as it will appear in the repo
+      const fileContent = await imageFile.text(); // Read file content
+      const encodedContent = btoa(fileContent); // Base64 encode the file content
+
+      const url = `https://api.github.com/repos/${REPO}/contents/images/${fileName}`;
+      const body = {
+        message: `Upload ${fileName}`,
+        content: encodedContent,
+        branch: BRANCH,
+      };
+
+      try {
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload image: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        logMessage(`Image uploaded successfully: ${result.content.download_url}`);
+        console.log("Upload result:", result);
+      } catch (error) {
+        logMessage("Error uploading image: " + error.message);
+        console.error(error);
+      }
+    }
+
+    document.getElementById("uploadBtn").addEventListener("click", () => {
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+      if (!file) {
+        logMessage("No file selected.");
+        return;
+      }
+      uploadImageToGitHub(file);
+    });
+  </script>
+</body>
+</html>
