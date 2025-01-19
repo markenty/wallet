@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GitHub Upload Test</title>
+  <title>Upload to GitHub</title>
 </head>
 <body>
-  <h1>Upload Image to GitHub</h1>
+  <h1>Upload Image to GitHub Repository: markenty/wallet</h1>
   <input type="file" id="fileInput" accept="image/*">
   <button id="uploadBtn">Upload</button>
   <div id="output"></div>
 
   <script>
-    const REPO = "your-username/your-repository"; // Replace with your repo name
-    const BRANCH = "main"; // The branch where files will be uploaded
-    const TOKEN = "your_personal_access_token"; // Replace with your GitHub token
+    const REPO = "markenty/wallet"; // GitHub repository name
+    const BRANCH = "main"; // Branch name
+    const TOKEN = "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"; // Personal Access Token
 
     const outputDiv = document.getElementById("output");
 
     function logMessage(message) {
       const log = document.createElement("p");
-      log.textContent = message;
+      log.innerHTML = message;
       outputDiv.appendChild(log);
     }
 
     async function uploadImageToGitHub(imageFile) {
-      const fileName = imageFile.name; // File name as it will appear in the repo
-      const fileContent = await imageFile.text(); // Read file content
-      const encodedContent = btoa(fileContent); // Base64 encode the file content
+      const fileName = imageFile.name; // File name in the repository
+      const fileContent = await imageFile.text(); // Read the file content
+      const encodedContent = btoa(fileContent); // Encode file content to Base64
 
       const url = `https://api.github.com/repos/${REPO}/contents/images/${fileName}`;
       const body = {
@@ -51,10 +51,9 @@
         }
 
         const result = await response.json();
-        logMessage(`Image uploaded successfully: ${result.content.download_url}`);
-        console.log("Upload result:", result);
+        logMessage(`File uploaded successfully: <a href="${result.content.download_url}" target="_blank">${result.content.download_url}</a>`);
       } catch (error) {
-        logMessage("Error uploading image: " + error.message);
+        logMessage(`Error: ${error.message}`);
         console.error(error);
       }
     }
@@ -63,7 +62,7 @@
       const fileInput = document.getElementById("fileInput");
       const file = fileInput.files[0];
       if (!file) {
-        logMessage("No file selected.");
+        logMessage("Please select a file to upload.");
         return;
       }
       uploadImageToGitHub(file);
