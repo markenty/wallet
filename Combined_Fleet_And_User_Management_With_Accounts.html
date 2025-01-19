@@ -1,0 +1,380 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleet Interface with User Accounts and Fleet Feed</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: #fff;
+      touch-action: manipulation;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    .fleet-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+    }
+    .fleet-item {
+      position: relative;
+      scroll-snap-align: start;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .fleet-item img, .fleet-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .fleet-item .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .fleet-item .user-info-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px;
+      border-radius: 5px;
+    }
+    .fleet-item .user-info-overlay img {
+      width: 30px;
+      height: 30px;
+      object-fit: cover;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .fleet-item .user-info-overlay span {
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .fleet-item .text-content {
+      position: absolute;
+      bottom: 50px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      color: white;
+    }
+    .add-fleet-btn, .user-avatar {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      z-index: 1001;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    .add-fleet-btn {
+      bottom: 20px;
+      right: 20px;
+      background: #007bff;
+    }
+    .add-fleet-btn:hover {
+      background: #0056b3;
+    }
+    .user-avatar {
+      bottom: 20px;
+      left: 20px;
+      background: #333;
+    }
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay">
+    <div class="modal-content"></div>
+  </div>
+  <div class="fleet-container" id="fleetContainer"></div>
+  <div class="add-fleet-btn" id="addFleetBtn">+</div>
+  <div class="user-avatar" id="userAvatar">
+    <img src="https://via.placeholder.com/60" alt="User Avatar">
+  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
+      authDomain: "publicledger-31ea9.firebaseapp.com",
+      projectId: "publicledger-31ea9",
+      storageBucket: "publicledger-31ea9.appspot.com",
+      messagingSenderId: "648981585684",
+      appId: "1:648981585684:web:45d586d38fe547dea7ac01",
+      measurementId: "G-9HMX2CDY1W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const USERS_COLLECTION = "users";
+    const FLEETS_COLLECTION = "fleets";
+
+    const fleetContainer = document.getElementById("fleetContainer");
+    const addFleetBtn = document.getElementById("addFleetBtn");
+    const userAvatar = document.getElementById("userAvatar");
+    const overlay = document.getElementById("overlay");
+    const modalContent = overlay.querySelector(".modal-content");
+
+    let currentUser = {
+      userId: null,
+      avatar: null,
+      username: "Anonymous",
+      password: null
+    };
+
+    // Fetch all users from Firebase
+    async function fetchAllUsers() {
+      const querySnapshot = await getDocs(collection(db, USERS_COLLECTION));
+      const users = [];
+      querySnapshot.forEach(doc => {
+        users.push({ id: doc.id, ...doc.data() });
+      });
+      return users;
+    }
+
+    // Save user profile to Firebase
+    async function saveUserProfileToFirebase(userProfile) {
+      const userId = userProfile.userId;
+      await setDoc(doc(db, USERS_COLLECTION, userId), userProfile);
+      localStorage.setItem("userId", userId); // Persist userId locally
+      console.log("User profile saved.");
+    }
+
+    // Load and display user profile
+    async function loadUserProfile() {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        currentUser = {
+          userId: "user_" + Date.now(),
+          avatar: "https://via.placeholder.com/60",
+          username: "Anonymous",
+          password: null
+        };
+        await saveUserProfileToFirebase(currentUser);
+      } else {
+        const docRef = doc(db, USERS_COLLECTION, userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          currentUser = docSnap.data();
+        } else {
+          console.warn("User not found, creating new user.");
+          currentUser = {
+            userId: "user_" + Date.now(),
+            avatar: "https://via.placeholder.com/60",
+            username: "Anonymous",
+            password: null
+          };
+          await saveUserProfileToFirebase(currentUser);
+        }
+      }
+      userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
+    }
+
+    // Open user account modal
+    userAvatar.addEventListener("click", async () => {
+      const allUsers = await fetchAllUsers();
+      const userOptions = allUsers.map(user => `<option value="${user.userId}">${user.username}</option>`).join("");
+
+      modalContent.innerHTML = `
+        <h1>User Account Management</h1>
+        <form id="profileForm">
+          <label for="usernameInput">Username:</label>
+          <input type="text" id="usernameInput" value="${currentUser.username}" required />
+          <label for="passwordInput">Password:</label>
+          <input type="password" id="passwordInput" value="${currentUser.password || ""}" />
+          <label for="avatarInput">Avatar:</label>
+          <input type="file" id="avatarInput" accept="image/*" />
+          <button type="submit">Save</button>
+        </form>
+        <hr />
+        <h2>Switch Account</h2>
+        <select id="switchAccountSelect">
+          <option disabled selected>Choose an account</option>
+          ${userOptions}
+        </select>
+        <button id="switchAccountButton">Switch</button>
+        <hr />
+        <h2>Add New Account</h2>
+        <button id="addAccountButton">Add Account</button>
+      `;
+      overlay.style.display = "flex";
+
+      const profileForm = document.getElementById("profileForm");
+      profileForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const usernameInput = document.getElementById("usernameInput").value;
+        const passwordInput = document.getElementById("passwordInput").value;
+        const avatarInput = document.getElementById("avatarInput").files[0];
+
+        if (avatarInput) {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            currentUser = {
+              ...currentUser,
+              username: usernameInput,
+              password: passwordInput,
+              avatar: event.target.result
+            };
+            await saveUserProfileToFirebase(currentUser);
+            loadUserProfile();
+            overlay.style.display = "none";
+          };
+          reader.readAsDataURL(avatarInput);
+        } else {
+          currentUser = {
+            ...currentUser,
+            username: usernameInput,
+            password: passwordInput
+          };
+          await saveUserProfileToFirebase(currentUser);
+          loadUserProfile();
+          overlay.style.display = "none";
+        }
+      });
+
+      document.getElementById("switchAccountButton").addEventListener("click", async () => {
+        const selectedUserId = document.getElementById("switchAccountSelect").value;
+        const docRef = doc(db, USERS_COLLECTION, selectedUserId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          currentUser = docSnap.data();
+          localStorage.setItem("userId", selectedUserId);
+          loadUserProfile();
+          overlay.style.display = "none";
+        } else {
+          alert("Account not found.");
+        }
+      });
+
+      document.getElementById("addAccountButton").addEventListener("click", async () => {
+        currentUser = {
+          userId: "user_" + Date.now(),
+          avatar: "https://via.placeholder.com/60",
+          username: "New User",
+          password: null
+        };
+        await saveUserProfileToFirebase(currentUser);
+        localStorage.setItem("userId", currentUser.userId);
+        loadUserProfile();
+        overlay.style.display = "none";
+      });
+    });
+
+    // Fetch fleets from Firebase
+    async function fetchFleets() {
+      const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+      const fleets = [];
+      querySnapshot.forEach(doc => {
+        fleets.push({ id: doc.id, ...doc.data() });
+      });
+      return fleets;
+    }
+
+    // Render fleet
+    function renderFleet(fleet) {
+      const fleetItem = document.createElement("div");
+      fleetItem.className = "fleet-item";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", async () => {
+        await deleteDoc(doc(db, FLEETS_COLLECTION, fleet.id));
+        loadFleets(); // Reload fleets
+      });
+      fleetItem.appendChild(deleteBtn);
+
+      const userOverlay = document.createElement("div");
+      userOverlay.className = "user-info-overlay";
+      userOverlay.innerHTML = `
+        <img src="${fleet.avatar}" alt="User Avatar">
+        <span>${fleet.username}</span>
+      `;
+      fleetItem.appendChild(userOverlay);
+
+      if (fleet.type.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.src = fleet.data;
+        fleetItem.appendChild(img);
+      } else if (fleet.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = fleet.data;
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        fleetItem.appendChild(video);
+      }
+
+      const textContent = document.createElement("div");
+      textContent.className = "text-content";
+      textContent.innerHTML = `<h2>${fleet.title}</h2><p>${fleet.description}</p>`;
+      fleetItem.appendChild(textContent);
+
+      fleetContainer.appendChild(fleetItem);
+    }
+
+    // Load and render fleets
+    async function loadFleets() {
+      fleetContainer.innerHTML = "";
+      const fleets = await fetchFleets();
+      fleets.forEach(renderFleet);
+    }
+
+    // Initialize
+    window.onload = async () => {
+      await loadUserProfile();
+      await loadFleets();
+    };
+  </script>
+</body>
+</html>
