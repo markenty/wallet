@@ -1,0 +1,257 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refactored Final Fleet Interface with Firestore</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: #fff;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    .fleet-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+    }
+    .fleet-item {
+      position: relative;
+      scroll-snap-align: start;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .fleet-item img, .fleet-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .fleet-item .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .fleet-item .text-content {
+      position: absolute;
+      bottom: 50px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      color: white;
+    }
+    .add-fleet-btn, .user-avatar {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      z-index: 1001;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    .add-fleet-btn {
+      bottom: 20px;
+      right: 20px;
+      background: #007bff;
+    }
+    .add-fleet-btn:hover {
+      background: #0056b3;
+    }
+    .user-avatar {
+      bottom: 20px;
+      left: 20px;
+      background: #333;
+    }
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay">
+    <div class="modal-content"></div>
+  </div>
+  <div class="fleet-container" id="fleetContainer"></div>
+  <div class="add-fleet-btn" id="addFleetBtn">+</div>
+  <div class="user-avatar" id="userAvatar">
+    <img src="https://via.placeholder.com/60" alt="User Avatar">
+  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
+      authDomain: "publicledger-31ea9.firebaseapp.com",
+      projectId: "publicledger-31ea9",
+      storageBucket: "publicledger-31ea9.appspot.com",
+      messagingSenderId: "648981585684",
+      appId: "1:648981585684:web:45d586d38fe547dea7ac01",
+      measurementId: "G-9HMX2CDY1W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const fleetContainer = document.getElementById("fleetContainer");
+    const addFleetBtn = document.getElementById("addFleetBtn");
+    const userAvatar = document.getElementById("userAvatar");
+    const overlay = document.getElementById("overlay");
+    const modalContent = overlay.querySelector(".modal-content");
+
+    async function addFleetToFirestore(fleet) {
+      try {
+        const docRef = await addDoc(collection(db, "fleets"), fleet);
+        console.log("Fleet added with ID: ", docRef.id);
+      } catch (e) {
+        console.error("Error adding fleet: ", e);
+      }
+    }
+
+    async function getFleetsFromFirestore() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "fleets"));
+        fleetContainer.innerHTML = "";
+        querySnapshot.forEach((doc) => {
+          const fleet = { id: doc.id, ...doc.data() };
+          addFleetToDOM(fleet);
+        });
+      } catch (e) {
+        console.error("Error retrieving fleets: ", e);
+      }
+    }
+
+    async function deleteFleetFromFirestore(fleetId) {
+      try {
+        await deleteDoc(doc(db, "fleets", fleetId));
+        console.log("Fleet deleted with ID: ", fleetId);
+        getFleetsFromFirestore();
+      } catch (e) {
+        console.error("Error deleting fleet: ", e);
+      }
+    }
+
+    function loadProfile() {
+      userAvatar.innerHTML = `<img src="https://via.placeholder.com/60" alt="User Avatar">`;
+    }
+
+    function addFleetToDOM(fleet) {
+      const fleetItem = document.createElement("div");
+      fleetItem.className = "fleet-item";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => deleteFleetFromFirestore(fleet.id));
+      fleetItem.appendChild(deleteBtn);
+
+      if (fleet.type.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.src = fleet.data;
+        fleetItem.appendChild(img);
+      } else if (fleet.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = fleet.data;
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        fleetItem.appendChild(video);
+      }
+
+      const textContent = document.createElement("div");
+      textContent.className = "text-content";
+      textContent.innerHTML = `<h2>${fleet.title}</h2><p>${fleet.description}</p>`;
+      fleetItem.appendChild(textContent);
+
+      fleetContainer.appendChild(fleetItem);
+    }
+
+    addFleetBtn.addEventListener("click", () => {
+      modalContent.innerHTML = `
+        <h1>Upload Your Fleet</h1>
+        <form id="uploadForm">
+          <input type="file" id="fileInput" accept="image/*,video/*" required />
+          <input type="text" id="titleInput" placeholder="Title" required />
+          <textarea id="descriptionInput" placeholder="Description"></textarea>
+          <button type="submit">Upload</button>
+        </form>
+      `;
+      overlay.style.display = "flex";
+
+      document.getElementById("uploadForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById("fileInput");
+        const titleInput = document.getElementById("titleInput").value;
+        const descriptionInput = document.getElementById("descriptionInput").value;
+        const file = fileInput.files[0];
+
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const fleetData = {
+              title: titleInput,
+              description: descriptionInput,
+              type: file.type,
+              data: event.target.result
+            };
+            addFleetToFirestore(fleetData).then(() => {
+              getFleetsFromFirestore();
+              overlay.style.display = "none";
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+
+    window.onload = () => {
+      loadProfile();
+      getFleetsFromFirestore();
+    };
+  </script>
+</body>
+</html>
