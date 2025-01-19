@@ -12,13 +12,19 @@
       color: #fff;
       touch-action: manipulation;
     }
+      a:link,
+a:visited,
+a:hover,
+a:active {
+  color: white !important;
+  font-weight: bold;
+  text-decoration: none; /* optional: removes underline */
+}
     .overlay {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.8);
       z-index: 1000;
       justify-content: center;
@@ -53,7 +59,7 @@
       height: 100%;
       object-fit: cover;
     }
-    .fleet-item .delete-btn {
+    .delete-btn {
       position: absolute;
       top: 10px;
       right: 10px;
@@ -64,7 +70,7 @@
       border-radius: 5px;
       cursor: pointer;
     }
-    .fleet-item .user-info-overlay {
+    .user-info-overlay {
       position: absolute;
       top: 10px;
       left: 10px;
@@ -74,19 +80,19 @@
       padding: 5px;
       border-radius: 5px;
     }
-    .fleet-item .user-info-overlay img {
+    .user-info-overlay img {
       width: 30px;
       height: 30px;
       object-fit: cover;
       border-radius: 50%;
       margin-right: 10px;
     }
-    .fleet-item .user-info-overlay span {
-      color: white;
+    .user-info-overlay span {
       font-size: 14px;
       font-weight: bold;
+      color: white;
     }
-    .fleet-item .text-content {
+    .text-content {
       position: absolute;
       bottom: 50px;
       background: rgba(0, 0, 0, 0.7);
@@ -126,30 +132,73 @@
       height: 100%;
       object-fit: cover;
       border-radius: 50%;
-    }
+    } /* Overlay covers entire viewport */
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 10px; /* Space around modal on small screens */
+  box-sizing: border-box;
+}
+
+/* Responsive modal content */
+.modal-content {
+  background: #333;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  width: 100%;
+  max-width: 400px;   /* Ensures a maximum width on larger screens */
+  box-sizing: border-box;
+  overflow-y: auto;
+  max-height: 90vh;   /* Ensures the modal doesn't exceed viewport height */
+}
+
+/* Input and button styling for better mobile experience */
+.modal-content input,
+.modal-content textarea,
+.modal-content button {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  box-sizing: border-box;
+  font-size: 1rem;
+}
+
+/* Responsive typography adjustments (optional) */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 15px;
+  }
+
+  .modal-content h1 {
+    font-size: 1.5rem;
+  }
+}
   </style>
 </head>
 <body>
-  <!-- Overlay for Modal -->
   <div class="overlay" id="overlay">
     <div class="modal-content"></div>
   </div>
 
-  <!-- Fleet Display Container -->
   <div class="fleet-container" id="fleetContainer"></div>
 
-  <!-- Add Fleet Button -->
   <div class="add-fleet-btn" id="addFleetBtn">+</div>
-
-  <!-- User Avatar -->
   <div class="user-avatar" id="userAvatar">
     <img src="https://via.placeholder.com/60" alt="User Avatar" />
   </div>
 
   <script type="module">
-   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc, updateDoc } 
-  from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc, updateDoc, writeBatch, query, where 
+} from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
 
     // Firebase initialization
@@ -168,6 +217,24 @@ import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setD
     // Constants
     const USERS_COLLECTION = "users";
     const FLEETS_COLLECTION = "fleets";
+      const defaultFleetFields = {
+  title: '',
+  description: '',
+  type: '',
+  data: '',
+  userId: '',
+  username: '',
+  avatar: '',
+  createdAt: 0
+};
+      const defaultUserFields = {
+  userId: '',
+  username: 'Anonymous',
+  password: null,
+  avatar: 'https://via.placeholder.com/60',
+  accountType: 'main',  // 'main' or 'sub'
+  parentMain: null      // parent main account ID if sub-account, else null
+};
 
     // DOM Elements
     const fleetContainer = document.getElementById("fleetContainer");
@@ -182,122 +249,286 @@ import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setD
       username: "Anonymous",
       password: null
     };
-
+// functions
+      async function refreshUI() {
+  await loadUserProfile(); // refresh user profile information
+  await loadFleets();      // reload fleet data
+  // Add calls to other UI update functions as needed
+}
     // User Management Functions
-    async function loginUser(userId, password) {
-      const docRef = doc(db, USERS_COLLECTION, userId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists() && docSnap.data().password === password) {
-        currentUser = { userId, ...docSnap.data() };
-        localStorage.setItem("userId", userId);
-        console.log("User logged in:", currentUser.username);
-      } else {
-        alert("Invalid credentials.");
-      }
-    }
+async function loginUser(username, password) {
+  // Query for a user with the given username
+  const usersRef = collection(db, USERS_COLLECTION);
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
 
-    async function registerUser(username, password) {
-      const userId = `user_${Date.now()}`;
-      const newUser = { userId, username, password, avatar: "https://via.placeholder.com/60" };
-      await setDoc(doc(db, USERS_COLLECTION, userId), newUser);
-      console.log("New user registered:", username);
-      await loginUser(userId, password);
-    }
+  if(querySnapshot.empty) {
+    alert("Invalid credentials.");
+    return;
+  }
+
+  // Assuming usernames are unique, take the first matching user
+  const userDoc = querySnapshot.docs[0];
+  const userData = applyDefaultUserFields(userDoc.data());
+
+  // Validate password
+  if(userData.password === password) {
+    currentUser = { userId: userData.userId, ...userData };
+    localStorage.setItem("userId", userData.userId);
+    console.log("User logged in:", currentUser.username);
+  } else {
+    alert("Invalid credentials.");
+  }
+}
+function applyDefaultUserFields(user) {
+  return { ...defaultUserFields, ...user };
+}
+   async function registerUser(username, password) {
+  const userId = `user_${Date.now()}`;
+  const newUserData = {
+    ...defaultUserFields,
+    userId,
+    username,
+    password
+    // accountType and parentMain are set by defaults here
+  };
+  await setDoc(doc(db, USERS_COLLECTION, userId), newUserData);
+  await loginUser(userId, password);
+}
 
     function logoutUser() {
-      currentUser = null;
+      currentUser = { userId: null, avatar: null, username: "Anonymous", password: null };
       localStorage.removeItem("userId");
-      console.log("User logged out.");
     }
-
-    // Modal behavior for User Avatar click
-    userAvatar.addEventListener("click", async () => {
+function applyDefaultFleetFields(fleet) {
+  // Merge default fields with existing fleet data
+  return { ...defaultFleetFields, ...fleet };
+}
+    // Render modal content based on login state
+    async function handleUserAvatarClick() {
       const isLoggedIn = currentUser && currentUser.userId;
       if (isLoggedIn) {
         modalContent.innerHTML = `
           <h1>Account Management</h1>
           <p>Username: ${currentUser.username}</p>
-<a href="#" id="changeUsernameLink">Change Username</a>
-<div id="changeUsernameFields" style="display:none;">
-  <input type="text" id="newUsernameInput" placeholder="New Username" required />
-  <button id="saveUsernameBtn">Save Username</button>
-</div>
-<p><img src="${currentUser.avatar}" alt="User Avatar" width="50"/></p>
-<a href="#" id="changeAvatarLink">Change Avatar</a>
-<div id="changeAvatarFields" style="display:none;">
-  <input type="file" id="newAvatarInput" accept="image/*" />
-  <button id="saveAvatarBtn">Save Avatar</button>
-</div>
-<p>User ID: ${currentUser.userId}</p>
+          <a href="#" id="changeUsernameLink">Change Username</a>
+          <div id="changeUsernameFields" style="display:none;">
+            <input type="text" id="newUsernameInput" placeholder="New Username" required />
+            <button id="saveUsernameBtn">Save Username</button>
+          </div>
+          <p><img src="${currentUser.avatar}" alt="User Avatar" width="50"/></p>
+          <a href="#" id="changeAvatarLink">Change Avatar</a>
+          <div id="changeAvatarFields" style="display:none;">
+            <input type="file" id="newAvatarInput" accept="image/*" />
+            <button id="saveAvatarBtn">Save Avatar</button>
+          </div>
+          <p>User ID: ${currentUser.userId}</p>
           <a href="#" id="changePasswordLink">Change Password</a>
           <div id="changePasswordFields" style="display:none;">
             <input type="password" id="currentPasswordInput" placeholder="Current Password" required />
             <input type="password" id="newPasswordInput" placeholder="New Password" required />
             <button id="savePasswordBtn">Save Password</button>
           </div>
+          <a href="#" id="toggleMainAccountLink">Set as Main Account</a> | 
+<a href="#" id="toggleSubAccountLink">Set as Sub Account</a>
+<div id="selectParentMainFields" style="display:none;">
+  <select id="parentMainSelect"></select>
+  <button id="setParentMainBtn">Assign Parent Main</button>
+</div>
+
           <button id="switchAccountBtn">Add/Switch Account</button>
           <select id="accountSwitchSelect" style="display:none;"></select>
           <button id="logoutBtn">Logout</button>
         `;
         overlay.style.display = "flex";
-// Toggle display of Change Username fields
-document.getElementById("changeUsernameLink").addEventListener("click", (e) => {
+        attachAccountManagementEvents();
+      } else {
+        modalContent.innerHTML = `
+          <h1>Login or Register</h1>
+          <form id="loginForm">
+  <input type="text" id="loginUsername" placeholder="Username" required />
+  <input type="password" id="loginPassword" placeholder="Password" required />
+  <button type="submit">Login</button>
+</form>
+          <hr />
+          <form id="registerForm">
+            <input type="text" id="registerUsername" placeholder="Choose Username" required />
+            <input type="password" id="registerPassword" placeholder="Choose Password" required />
+            <button type="submit">Register</button>
+          </form>
+        `;
+        overlay.style.display = "flex";
+        attachAuthEvents();
+      }
+    }
+
+    function attachAuthEvents() {
+   document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const unameFields = document.getElementById("changeUsernameFields");
-  unameFields.style.display = unameFields.style.display === "none" ? "block" : "none";
+  const username = document.getElementById("loginUsername").value;
+  const password = document.getElementById("loginPassword").value;
+  await loginUser(username, password);
+  overlay.style.display = "none";
 });
 
-// Save new username and update Firestore
-document.getElementById("saveUsernameBtn").addEventListener("click", async () => {
-  const newUsername = document.getElementById("newUsernameInput").value.trim();
-  if(newUsername) {
-    await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
-      ...currentUser,
-      username: newUsername
+      document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("registerUsername").value;
+        const password = document.getElementById("registerPassword").value;
+        await registerUser(username, password);
+        overlay.style.display = "none";
+      });
+    }
+
+    function attachAccountManagementEvents() {
+        // Toggle to set account as main
+document.getElementById("toggleMainAccountLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if(currentUser.accountType !== 'main') {
+    currentUser.accountType = 'main';
+    currentUser.parentMain = null;
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+      accountType: 'main',
+      parentMain: null
     });
-    currentUser.username = newUsername;
-    alert("Username updated.");
-    // Optionally update UI immediately without closing modal
-    document.querySelector("p").innerText = `Username: ${currentUser.username}`;
-    document.getElementById("changeUsernameFields").style.display = "none";
+    alert("Account set as Main.");
   } else {
-    alert("Please enter a valid username.");
+    alert("Already a Main Account.");
   }
 });
-           // Change Avatar Events
-// Change Avatar Events
-document.getElementById("changeAvatarLink").addEventListener("click", (e) => {
-  e.preventDefault();
-  const avatarFields = document.getElementById("changeAvatarFields");
-  avatarFields.style.display = avatarFields.style.display === "none" ? "block" : "none";
-});
 
-document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
-  const fileInput = document.getElementById("newAvatarInput");
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Please select an image file.");
+// Toggle to set account as sub and display parent selection
+document.getElementById("toggleSubAccountLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if(currentUser.accountType !== 'sub') {
+    const selectParentDiv = document.getElementById("selectParentMainFields");
+    selectParentDiv.style.display = "block";
+    const mainsSnapshot = await getDocs(collection(db, USERS_COLLECTION));
+    const parentMainSelect = document.getElementById("parentMainSelect");
+    parentMainSelect.innerHTML = '';
+    mainsSnapshot.forEach(docSnap => {
+      const userData = docSnap.data();
+      if(userData.accountType === 'main' && userData.userId !== currentUser.userId) {
+        const option = document.createElement("option");
+        option.value = userData.userId;
+        option.textContent = userData.username;
+        parentMainSelect.appendChild(option);
+      }
+    });
+  } else {
+    alert("Already a Sub Account.");
+  }
+});
+async function addSubaccount(username, password) {
+  // Query for a user with the given username
+  const usersRef = collection(db, USERS_COLLECTION);
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if(querySnapshot.empty) {
+    alert("No user found with that username.");
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = async (event) => {
-    const newAvatar = event.target.result;
-    console.log("New avatar data read:", newAvatar.substring(0, 50) + "..."); // Debug log
+  // Assuming usernames are unique, use the first matching user
+  const userDoc = querySnapshot.docs[0];
+  const userData = applyDefaultUserFields(userDoc.data());
 
-    try {
-      const userDocRef = doc(db, USERS_COLLECTION, currentUser.userId);
-      await updateDoc(userDocRef, { avatar: newAvatar });
-      currentUser.avatar = newAvatar;
-      alert("Avatar updated.");
+  // Verify the password
+  if(userData.password !== password) {
+    alert("Incorrect password.");
+    return;
+  }
 
-      // Update displayed avatar
-      const mainAvatarImg = userAvatar.querySelector("img");
-      if (mainAvatarImg) {
-        mainAvatarImg.src = newAvatar;
-      }
+  // Update the found user to be a subaccount of the current main account
+  await updateDoc(doc(db, USERS_COLLECTION, userData.userId), {
+    accountType: 'sub',
+    parentMain: currentUser.userId
+  });
 
-      document.getElementById("changeAvatarFields").style.display = "none";
+  alert(`Subaccount ${userData.username} added under ${currentUser.username}.`);
+}
+
+// Set current account as sub-account with selected parent
+document.getElementById("setParentMainBtn").addEventListener("click", async () => {
+  const selectedParentId = document.getElementById("parentMainSelect").value;
+  if(selectedParentId) {
+    currentUser.accountType = 'sub';
+    currentUser.parentMain = selectedParentId;
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+      accountType: 'sub',
+      parentMain: selectedParentId
+    });
+    alert("Account set as Sub Account under selected Main.");
+    document.getElementById("selectParentMainFields").style.display = "none";
+  } else {
+    alert("Please select a Main Account.");
+  }
+});
+
+      // Toggle Change Username Fields
+      document.getElementById("changeUsernameLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changeUsernameFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
+
+      // Save new username
+      document.getElementById("saveUsernameBtn").addEventListener("click", async () => {
+        const newUsername = document.getElementById("newUsernameInput").value.trim();
+        if (newUsername) {
+          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+            ...currentUser,
+            username: newUsername
+          });
+          currentUser.username = newUsername;
+          alert("Username updated.");
+          document.querySelector("p").innerText = `Username: ${currentUser.username}`;
+          document.getElementById("changeUsernameFields").style.display = "none";
+        } else {
+          alert("Please enter a valid username.");
+        }
+      });
+
+      // Toggle Change Avatar Fields
+      document.getElementById("changeAvatarLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changeAvatarFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
+
+      // Save new avatar
+      document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
+        const fileInput = document.getElementById("newAvatarInput");
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("Please select an image file.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const newAvatar = event.target.result;
+          try {
+            const userDocRef = doc(db, USERS_COLLECTION, currentUser.userId);
+            await updateDoc(userDocRef, { avatar: newAvatar });
+            currentUser.avatar = newAvatar;
+            alert("Avatar updated.");
+            userAvatar.querySelector("img").src = newAvatar;
+            document.getElementById("changeAvatarFields").style.display = "none";
+          // Batch update all fleet documents belonging to current user
+      const fleetsSnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+      const batch = writeBatch(db);
+      fleetsSnapshot.forEach(fleetDoc => {
+        const data = fleetDoc.data();
+        if (data.userId === currentUser.userId) {
+          const fleetRef = doc(db, FLEETS_COLLECTION, fleetDoc.id);
+          batch.update(fleetRef, { avatar: newAvatar });
+        }
+      });
+      await batch.commit();
+
+      // Refresh fleet items to reflect new avatar in UI
+      loadFleets();
     } catch (error) {
       console.error("Error updating avatar:", error);
       alert("Failed to update avatar. Please try again.");
@@ -308,119 +539,268 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
     console.error("FileReader error:", error);
     alert("Error reading file.");
   };
-
   reader.readAsDataURL(file);
 });
 
-        document.getElementById("changePasswordLink").addEventListener("click", (e) => {
-          e.preventDefault();
-          const fields = document.getElementById("changePasswordFields");
-          fields.style.display = fields.style.display === "none" ? "block" : "none";
-        });
+      // Toggle Change Password Fields
+      document.getElementById("changePasswordLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changePasswordFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
 
-        document.getElementById("savePasswordBtn").addEventListener("click", async () => {
-          const currentPwd = document.getElementById("currentPasswordInput").value;
-          const newPwd = document.getElementById("newPasswordInput").value;
-          if (currentPwd === currentUser.password) {
-            await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
-              ...currentUser,
-              password: newPwd
-            });
-            currentUser.password = newPwd;
-            alert("Password updated.");
-          } else {
-            alert("Current password is incorrect.");
-          }
-        });
+      // Save new password
+      document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+        const currentPwd = document.getElementById("currentPasswordInput").value;
+        const newPwd = document.getElementById("newPasswordInput").value;
+        if (currentPwd === currentUser.password) {
+          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+            ...currentUser,
+            password: newPwd
+          });
+          currentUser.password = newPwd;
+          alert("Password updated.");
+        } else {
+          alert("Current password is incorrect.");
+        }
+      });
 
-        const switchBtn = document.getElementById("switchAccountBtn");
-        const accountSelect = document.getElementById("accountSwitchSelect");
-        switchBtn.addEventListener("click", async () => {
-          accountSelect.style.display = accountSelect.style.display === "none" ? "block" : "none";
-          if(accountSelect.style.display === "block") {
-            const allUsers = await (async () => {
-              const snapshot = await getDocs(collection(db, USERS_COLLECTION));
-              const users = [];
-              snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
-              return users;
-            })();
-            accountSelect.innerHTML = `<option disabled selected>Select Account</option>`;
-            allUsers.forEach(user => {
-              accountSelect.innerHTML += `<option value="${user.userId}">${user.username}</option>`;
-            });
-          } else {
-            accountSelect.innerHTML = "";
-          }
-        });
-
-        accountSelect.addEventListener("change", async (e) => {
-          const selectedUserId = e.target.value;
-          const docSnap = await getDoc(doc(db, USERS_COLLECTION, selectedUserId));
-          if(docSnap.exists()) {
-            currentUser = docSnap.data();
-            localStorage.setItem("userId", selectedUserId);
-            alert(`Switched to ${currentUser.username}`);
-            overlay.style.display = "none";
-          } else {
-            alert("Account not found.");
-          }
-        });
-
-        document.getElementById("logoutBtn").addEventListener("click", () => {
-          logoutUser();
-          overlay.style.display = "none";
-        });
-      } else {
-        modalContent.innerHTML = `
-          <h1>Login or Register</h1>
-          <form id="loginForm">
-            <input type="text" id="loginUserId" placeholder="User ID" required />
-            <input type="password" id="loginPassword" placeholder="Password" required />
-            <button type="submit">Login</button>
-          </form>
-          <hr />
-          <form id="registerForm">
-            <input type="text" id="registerUsername" placeholder="Choose Username" required />
-            <input type="password" id="registerPassword" placeholder="Choose Password" required />
-            <button type="submit">Register</button>
-          </form>
-        `;
-        overlay.style.display = "flex";
-        document.getElementById("loginForm").addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const userId = document.getElementById("loginUserId").value;
-          const password = document.getElementById("loginPassword").value;
-          await loginUser(userId, password);
-          overlay.style.display = "none";
-        });
-        document.getElementById("registerForm").addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const username = document.getElementById("registerUsername").value;
-          const password = document.getElementById("registerPassword").value;
-          await registerUser(username, password);
-          overlay.style.display = "none";
-        });
+      // Account Switcher Setup
+      const switchBtn = document.getElementById("switchAccountBtn");
+      const accountSelect = document.getElementById("accountSwitchSelect");
+switchBtn.addEventListener("click", async () => {
+  accountSelect.style.display = accountSelect.style.display === "none" ? "block" : "none";
+  
+  if(accountSelect.style.display === "block") {
+    accountSelect.innerHTML = `<option disabled selected>Select Option</option>`;
+    
+    // If current user is a subaccount, offer an option to switch back to main
+    if(currentUser.accountType === 'sub' && currentUser.parentMain) {
+      accountSelect.innerHTML += `<option value="switch-back-main">Switch Back to Main Account</option>`;
+    }
+    
+    // If current user is a main account, list their subaccounts and add-subaccount option
+    if(currentUser.accountType === 'main') {
+      const snapshot = await getDocs(collection(db, USERS_COLLECTION));
+      let subAccountsFound = false;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if(data.accountType === 'sub' && data.parentMain === currentUser.userId) {
+          accountSelect.innerHTML += `<option value="${data.userId}">${data.username}</option>`;
+          subAccountsFound = true;
+        }
+      });
+      accountSelect.innerHTML += `<option value="add-subaccount">Add Subaccount...</option>`;
+      if(!subAccountsFound) {
+        accountSelect.innerHTML += `<option disabled>No existing sub accounts</option>`;
       }
-    });
+    }
+  } else {
+    accountSelect.innerHTML = "";
+  }
+});
+        // Change Event: Handling dropdown selection
+accountSelect.addEventListener("change", async (e) => {
+  const selectedValue = e.target.value;
 
+  if (selectedValue === "switch-back-main") {
+    if (currentUser.accountType === 'sub' && currentUser.parentMain) {
+      try {
+        const parentRef = doc(db, USERS_COLLECTION, currentUser.parentMain);
+        const parentSnap = await getDoc(parentRef);
+
+        if (parentSnap.exists()) {
+          currentUser = applyDefaultUserFields(parentSnap.data());
+          localStorage.setItem("userId", currentUser.userId);
+          alert(`Switched back to main account: ${currentUser.username}`);
+          overlay.style.display = "none";
+          await refreshUI();
+        } else {
+          alert("Main account not found.");
+        }
+      } catch (error) {
+        console.error("Error switching back to main account:", error);
+        alert("An error occurred while switching back to the main account.");
+      }
+    } else {
+      alert("This account cannot switch back to a main account.");
+    }
+  } else if (selectedValue === "add-subaccount") {
+    // Trigger "Add Subaccount" flow
+    modalContent.innerHTML = `
+      <h1>Add Subaccount</h1>
+      <form id="addSubaccountForm">
+        <input type="text" id="subUsername" placeholder="Username" required />
+        <input type="password" id="subPassword" placeholder="Password" required />
+        <button type="submit">Add Subaccount</button>
+      </form>
+    `;
+    overlay.style.display = "flex";
+    
+    document.getElementById("addSubaccountForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = document.getElementById("subUsername").value.trim();
+      const password = document.getElementById("subPassword").value;
+      await addSubaccount(username, password);
+      overlay.style.display = "none";
+      switchBtn.click(); // Refresh dropdown
+      switchBtn.click();
+    });
+  } else if (selectedValue) {
+    // Handle switching to another subaccount
+    const userRef = doc(db, USERS_COLLECTION, selectedValue);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      currentUser = userSnap.data();
+      localStorage.setItem("userId", selectedValue);
+      alert(`Switched to ${currentUser.username}`);
+      overlay.style.display = "none";
+      await refreshUI();
+    }
+  }
+});
+
+      accountSelect.addEventListener("change", async (e) => {
+        const selectedUserId = e.target.value;
+          
+        const userRef = doc(db, USERS_COLLECTION, selectedUserId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          currentUser = userSnap.data();
+          localStorage.setItem("userId", selectedUserId);
+          alert(`Switched to ${currentUser.username}`);
+          overlay.style.display = "none";
+await refreshUI();            // Auto-refresh UI after account switch
+    await loadUserProfile();
+    await loadFleets();
+  } else {
+    ;
+  }
+});
+accountSelect.addEventListener("change", async (e) => {
+  const selectedValue = e.target.value;
+  
+  // If "Add Subaccount" is selected, initiate subaccount creation flow
+  if(selectedValue === "add-subaccount") {
+    // Reset selection to default state
+    accountSelect.selectedIndex = 0;
+    
+    // Display modal form for adding a subaccount
+    modalContent.innerHTML = `
+      <h1>Add Subaccount</h1>
+      <form id="addSubaccountForm">
+        <input type="text" id="subUsername" placeholder="Username" required />
+        <input type="password" id="subPassword" placeholder="Password" required />
+        <button type="submit">Add Subaccount</button>
+      </form>
+      <br/>
+  <a href="#" id="createAccountLink">Create new account</a>
+    `;
+    overlay.style.display = "flex";
+      
+    
+    document.getElementById("addSubaccountForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = document.getElementById("subUsername").value;
+      const password = document.getElementById("subPassword").value;
+      
+      await addSubaccount(username, password);
+      overlay.style.display = "none";
+      // Refresh switcher dropdown list to include the new subaccount
+      switchBtn.click();
+      switchBtn.click();
+    });
+  }// Existing code setting up modal content including the createAccountLink...
+modalContent.innerHTML = `
+  <h1>Add Subaccount</h1>
+  <form id="addSubaccountForm">
+    <input type="text" id="subUsername" placeholder="Username" required />
+    <input type="password" id="subPassword" placeholder="Password" required />
+    <button type="submit">Add Subaccount</button>
+  </form>
+  <br/>
+  <a href="#" id="createAccountLink">Create new account</a>
+`;
+overlay.style.display = "flex";
+
+// <-- Add Step 2 code here:
+document.getElementById("createAccountLink").addEventListener("click", (event) => {
+  event.preventDefault();
+  
+  // Replace modal content with registration form for new subaccount
+  modalContent.innerHTML = `
+    <h1>Create New Subaccount</h1>
+    <form id="createSubaccountForm">
+      <input type="text" id="newSubUsername" placeholder="Username" required />
+      <input type="password" id="newSubPassword" placeholder="Password" required />
+      <button type="submit">Create Subaccount</button>
+    </form>
+  `;
+  
+  // Add submission handler for the new subaccount form
+  document.getElementById("createSubaccountForm").addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    let username = document.getElementById("newSubUsername").value.trim();
+    let password = document.getElementById("newSubPassword").value;
+    
+    // Store current main account context
+    const mainAccount = currentUser;
+    
+    // Create a new user document as a subaccount
+    const newUserId = "user_" + Date.now();
+    const newUserData = {
+      ...defaultUserFields,
+      userId: newUserId,
+      username,
+      password,
+      accountType: 'sub',
+      parentMain: mainAccount.userId,
+      avatar: 'https://via.placeholder.com/60'
+    };
+    await setDoc(doc(db, USERS_COLLECTION, newUserId), newUserData);
+    
+    alert(`New subaccount "${username}" created under ${mainAccount.username}.`);
+    overlay.style.display = "none";
+    await refreshUI();      // Refresh the switcher dropdown to include the new subaccount
+    switchBtn.click();
+    switchBtn.click();
+  });
+});
+
+});
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        logoutUser();
+        overlay.style.display = "none";
+      });
+    }
+
+    // Overlay click to close modal
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) overlay.style.display = "none";
     });
 
     // Fleet Management Functions
-    async function fetchFleets() {
-      const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
-      const fleets = [];
-      querySnapshot.forEach(doc => {
-        fleets.push({ id: doc.id, ...doc.data() });
-      });
-      return fleets;
-    }
+  async function fetchFleets() {
+  const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+  const fleets = [];
+  querySnapshot.forEach(docSnap => {
+    // Apply default fields to ensure consistency
+    const fleetWithDefaults = applyDefaultFleetFields(docSnap.data());
+    fleets.push({ id: docSnap.id, ...fleetWithDefaults });
+
+    // Optional: Update Firestore if fleet was missing fields
+    // await updateDoc(doc(db, FLEETS_COLLECTION, docSnap.id), fleetWithDefaults);
+  });
+  return fleets;
+}
 
     function renderFleet(fleet) {
       const fleetItem = document.createElement("div");
       fleetItem.className = "fleet-item";
 
+      // Add delete button if owner
       if (fleet.userId === currentUser.userId) {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-btn";
@@ -431,15 +811,18 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
         });
         fleetItem.appendChild(deleteBtn);
       }
-
+  // Determine avatar source: updated if current user's fleet, otherwise use stored avatar
+  const avatarSrc = (fleet.userId === currentUser.userId) 
+                      ? currentUser.avatar 
+                      : fleet.avatar;
+      // User info overlay
       const userOverlay = document.createElement("div");
       userOverlay.className = "user-info-overlay";
-      userOverlay.innerHTML = `
-        <img src="${fleet.avatar}" alt="User Avatar">
-        <span>${fleet.username}</span>
-      `;
+      userOverlay.innerHTML = `<img src="${fleet.avatar}" alt="User Avatar">
+                               <span>${fleet.username}</span>`;
       fleetItem.appendChild(userOverlay);
 
+      // Media content
       if (fleet.type.startsWith("image/")) {
         const img = document.createElement("img");
         img.src = fleet.data;
@@ -453,6 +836,7 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
         fleetItem.appendChild(video);
       }
 
+      // Text overlay
       const textContent = document.createElement("div");
       textContent.className = "text-content";
       textContent.innerHTML = `<h2>${fleet.title}</h2><p>${fleet.description}</p>`;
@@ -468,22 +852,25 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
     }
 
     async function loadUserProfile() {
-      const userId = localStorage.getItem("userId");
+      let userId = localStorage.getItem("userId");
       if (!userId) {
+        // Create new anonymous user if not exists
+        userId = "user_" + Date.now();
         currentUser = {
-          userId: "user_" + Date.now(),
+          userId,
           avatar: "https://via.placeholder.com/60",
           username: "Anonymous",
           password: null
         };
-        await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), currentUser);
-        localStorage.setItem("userId", currentUser.userId);
+        await setDoc(doc(db, USERS_COLLECTION, userId), currentUser);
+        localStorage.setItem("userId", userId);
       } else {
-        const docRef = doc(db, USERS_COLLECTION, userId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          currentUser = docSnap.data();
+        const userRef = doc(db, USERS_COLLECTION, userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          currentUser = userSnap.data();
         } else {
+          // If user not found in Firestore, create new
           currentUser = {
             userId: "user_" + Date.now(),
             avatar: "https://via.placeholder.com/60",
@@ -497,16 +884,21 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
       userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
     }
 
-    async function addFleetToFirestore(fleetData) {
-      await addDoc(collection(db, FLEETS_COLLECTION), {
-        ...fleetData,
-        userId: currentUser.userId,
-        username: currentUser.username,
-        avatar: currentUser.avatar,
-        createdAt: Date.now()
-      });
-    }
+   async function addFleetToFirestore(fleetData) {
+  // Merge user-provided fleetData with defaults
+  const completeFleetData = { 
+    ...defaultFleetFields, 
+    ...fleetData,
+    userId: currentUser.userId,
+    username: currentUser.username,
+    avatar: currentUser.avatar,
+    createdAt: Date.now()
+  };
+  await addDoc(collection(db, FLEETS_COLLECTION), completeFleetData);
+}
 
+
+    // Add Fleet Button Event
     addFleetBtn.addEventListener("click", () => {
       modalContent.innerHTML = `
         <h1>Upload Your Fleet</h1>
@@ -521,17 +913,16 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
 
       document.getElementById("uploadForm").addEventListener("submit", (e) => {
         e.preventDefault();
-        const fileInput = document.getElementById("fileInput");
-        const titleInput = document.getElementById("titleInput").value;
-        const descriptionInput = document.getElementById("descriptionInput").value;
-        const file = fileInput.files[0];
+        const file = document.getElementById("fileInput").files[0];
+        const title = document.getElementById("titleInput").value;
+        const description = document.getElementById("descriptionInput").value;
 
         if (file) {
           const reader = new FileReader();
           reader.onload = (event) => {
             const fleetData = {
-              title: titleInput,
-              description: descriptionInput,
+              title,
+              description,
               type: file.type,
               data: event.target.result
             };
@@ -544,10 +935,10 @@ document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
         }
       });
     });
+      
 
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.style.display = "none";
-    });
+    // User avatar click opens account modal
+    userAvatar.addEventListener("click", handleUserAvatarClick);
 
     window.onload = async () => {
       await loadUserProfile();
