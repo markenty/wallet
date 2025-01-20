@@ -767,16 +767,32 @@ function applyDefaultUserFields(user) {
   return { ...defaultUserFields, ...user };
 }
    async function registerUser(username, password) {
+  const usersRef = collection(db, USERS_COLLECTION);
+
+  // Check if username already exists
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if (!querySnapshot.empty) {
+    alert("Username already exists. Please choose another.");
+    return;
+  }
+
+  // Create new user document
   const userId = `user_${Date.now()}`;
-  const newUserData = {
+  const newUser = {
     ...defaultUserFields,
     userId,
     username,
-    password
-    // accountType and parentMain are set by defaults here
+    password, // Store securely (e.g., hashed in a real-world app)
+    createdAt: Date.now(),
   };
-  await setDoc(doc(db, USERS_COLLECTION, userId), newUserData);
-  await loginUser(userId, password);
+
+  await setDoc(doc(db, USERS_COLLECTION, userId), newUser);
+  alert("Registration successful!");
+
+  // Optionally, log in the user after registration
+  await loginUser(username, password);
 }
 
     function logoutUser() {
