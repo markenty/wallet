@@ -248,8 +248,8 @@ a:active {
 
 .comment-input {
   display: flex;
-  padding: 10px;
-  border-top: 1px solid #444;
+  padding: 15px;
+  border-top: 1px solid #444;    margin-bottom: 4%;
 }
 
 .comment-input input {
@@ -438,6 +438,7 @@ function openCommentPanel(fleetId) {
   const commentPanel = document.getElementById("commentPanel");
   commentPanel.style.bottom = "0";
   activeFleetId = fleetId; // Set the active fleet
+  console.log("Active Fleet ID:", activeFleetId); // Debugging log
   loadComments(fleetId); // Load comments for the fleet
 }
 
@@ -447,25 +448,47 @@ function closeCommentPanel() {
   activeFleetId = null; // Clear active fleet
 }
 async function loadComments(fleetId) {
-  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
-  const fleetSnap = await getDoc(fleetRef);
+  console.log("Loading comments for Fleet ID:", fleetId);
+  try {
+    const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+    const fleetSnap = await getDoc(fleetRef);
 
-  if (fleetSnap.exists()) {
-    const fleetData = fleetSnap.data();
-    const comments = fleetData.comments || [];
-    renderComments(comments);
+    if (fleetSnap.exists()) {
+      const fleetData = fleetSnap.data();
+      const comments = fleetData.comments || [];
+      console.log("Fetched Comments:", comments);
+      renderComments(comments);
+    } else {
+      console.error("Fleet not found for ID:", fleetId);
+    }
+  } catch (error) {
+    console.error("Error fetching comments:", error);
   }
 }
 
+
+
 function renderComments(comments, parentElement = document.getElementById("commentList")) {
+  if (!Array.isArray(comments)) {
+    console.error("Invalid comments data:", comments);
+    parentElement.innerHTML = "<p>No comments available.</p>";
+    return;
+  }
+
+  console.log("Rendering comments:", comments);
   parentElement.innerHTML = ""; // Clear existing comments
 
   comments.forEach((comment, index) => {
+    if (!comment || !comment.comment) {
+      console.warn(`Skipping invalid comment at index ${index}:`, comment);
+      return;
+    }
+
     const commentDiv = document.createElement("div");
     commentDiv.className = "comment-item";
     commentDiv.innerHTML = `
       <div>
-        <strong>${comment.username}</strong> 
+        <strong>${comment.username}</strong>
         <span>${new Date(comment.timestamp).toLocaleString()}</span>
         <p>${comment.comment}</p>
         ${
@@ -479,13 +502,14 @@ function renderComments(comments, parentElement = document.getElementById("comme
     `;
     parentElement.appendChild(commentDiv);
 
-    // Render nested comments
-    if (comment.replies && comment.replies.length) {
+    if (comment.replies && Array.isArray(comment.replies)) {
       const nestedContainer = commentDiv.querySelector(".nested-comments");
       renderComments(comment.replies, nestedContainer);
     }
   });
 }
+
+
 document.getElementById("postCommentBtn").addEventListener("click", async () => {
   const commentInput = document.getElementById("commentInput");
   const commentText = commentInput.value.trim();
@@ -495,79 +519,131 @@ document.getElementById("postCommentBtn").addEventListener("click", async () => 
     return;
   }
 
-  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
-  const fleetSnap = await getDoc(fleetRef);
+  try {
+    const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+    const fleetSnap = await getDoc(fleetRef);
 
-  if (fleetSnap.exists()) {
-    const fleetData = fleetSnap.data();
-    const comments = fleetData.comments || [];
+    if (fleetSnap.exists()) {
+      const fleetData = fleetSnap.data();
+      const comments = fleetData.comments || [];
 
-    const newComment = {
-      userId: currentUser.userId,
-      username: currentUser.username,
-      avatar: currentUser.avatar,
-      comment: commentText,
-      timestamp: Date.now(),
-      replies: [], // For nested replies
-    };
+      const newComment = {
+        userId: currentUser.userId,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        comment: commentText,
+        timestamp: Date.now(),
+        replies: [],
+      };
 
-    comments.push(newComment);
+      comments.push(newComment);
+      console.log("Updated Comments Array Before Firestore Update:", comments);
 
- // Update Firestore with the new comments array
-    await updateDoc(fleetRef, { comments });
-    commentInput.value = ""; // Clear input
-    loadFleets(); // Refresh fleets to update the comment count
-    loadComments(activeFleetId); // Refresh comments in the panel
+      // Save updated comments to Firestore
+         await updateDoc(fleetRef, { 
+        comments,
+        lastCommented: Date.now(), // Update the last commented time
+      });
+
+      console.log("Comment successfully added:", newComment);
+      commentInput.value = ""; // Clear input
+      loadComments(activeFleetId); // Refresh comments
+    } else {
+      console.error("Fleet not found for ID:", activeFleetId);
+    }
+  } catch (error) {
+    console.error("Error posting comment:", error);
   }
 });
+
+
 async function deleteComment(commentIndex) {
-  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
-  const fleetSnap = await getDoc(fleetRef);
+  if (!activeFleetId) {
+    console.error("No activeFleetId set. Cannot delete comment.");
+    return;
+  }
 
-  if (fleetSnap.exists()) {
-    const fleetData = fleetSnap.data();
-    const comments = fleetData.comments || [];
+  try {
+    const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+    const fleetSnap = await getDoc(fleetRef);
 
-    if (comments[commentIndex].userId === currentUser.userId) {
-      comments.splice(commentIndex, 1); // Remove the comment
-      await updateDoc(fleetRef, { comments }); // Update Firestore
-      loadFleets(); // Refresh fleets to update the comment count
-      loadComments(activeFleetId); // Refresh comments in the panel
+    if (fleetSnap.exists()) {
+      const fleetData = fleetSnap.data();
+      const comments = fleetData.comments || [];
+
+      if (comments[commentIndex]?.userId === currentUser.userId) {
+        // Remove the comment
+        comments.splice(commentIndex, 1);
+        await updateDoc(fleetRef, { comments });
+        console.log(`Comment at index ${commentIndex} deleted.`);
+        
+        // Reload comments to update the UI
+        await loadComments(activeFleetId);
+      } else {
+        console.error("You can only delete your own comments.");
+        alert("You can only delete your own comments.");
+      }
     } else {
-      alert("You can only delete your own comments.");
+      console.error("Fleet not found for ID:", activeFleetId);
     }
+  } catch (error) {
+    console.error("Error deleting comment:", error);
   }
 }
+
 async function replyToComment(commentIndex) {
+  if (!activeFleetId) {
+    console.error("No activeFleetId set. Cannot reply to comment.");
+    return;
+  }
+
   const replyText = prompt("Enter your reply:");
-  if (!replyText) return;
+  if (!replyText) {
+    console.log("Reply cancelled or empty input.");
+    return;
+  }
 
-  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
-  const fleetSnap = await getDoc(fleetRef);
+  try {
+    const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+    const fleetSnap = await getDoc(fleetRef);
 
-  if (fleetSnap.exists()) {
-    const fleetData = fleetSnap.data();
-    const comments = fleetData.comments || [];
+    if (fleetSnap.exists()) {
+      const fleetData = fleetSnap.data();
+      const comments = fleetData.comments || [];
 
-    const reply = {
-      userId: currentUser.userId,
-      username: currentUser.username,
-      avatar: currentUser.avatar,
-      comment: replyText,
-      timestamp: Date.now(),
-    };
+      if (!comments[commentIndex]) {
+        console.error("Comment not found at index:", commentIndex);
+        return;
+      }
 
-    if (!comments[commentIndex].replies) {
-      comments[commentIndex].replies = [];
+      const reply = {
+        userId: currentUser.userId,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        comment: replyText,
+        timestamp: Date.now(),
+      };
+
+      if (!comments[commentIndex].replies) {
+        comments[commentIndex].replies = [];
+      }
+
+      comments[commentIndex].replies.push(reply);
+      console.log(`Updated Comments with Reply at Index ${commentIndex}:`, comments);
+
+      await updateDoc(fleetRef, { comments });
+      console.log("Reply added:", reply);
+
+      loadComments(activeFleetId); // Refresh comments
+    } else {
+      console.error("Fleet not found for ID:", activeFleetId);
     }
-
-    comments[commentIndex].replies.push(reply);
-
-    // Update Firestore with the reply
-    await updateDoc(fleetRef, { comments });
-    loadComments(activeFleetId); // Refresh comments
+  } catch (error) {
+    console.error("Error replying to comment:", error);
   }
 }
+
+
 
 // Attach close button functionality
 document.getElementById("closeCommentPanel").addEventListener("click", closeCommentPanel);
@@ -1258,6 +1334,13 @@ async function fetchFleets() {
     (b.lastInteracted || 0) - (a.lastInteracted || 0) || // Promote recently interacted fleets
     b.activityScore - a.activityScore || 
     b.createdAt - a.createdAt
+  );
+// Sort fleets by lastCommented timestamp (if exists), last interacted timestamp, and activity score
+  fleets.sort((a, b) =>
+    (b.lastCommented || 0) - (a.lastCommented || 0) || // Recently commented fleets
+    (b.lastInteracted || 0) - (a.lastInteracted || 0) || // Recently interacted fleets
+    b.activityScore - a.activityScore || 
+    b.createdAt - a.createdAt // Recency of creation
   );
 
   return fleets;
