@@ -684,7 +684,55 @@ const defaultFleetFields = {
       password: null
     };
 // functions
-      
+      function initializeFleetListener() {
+  const fleetRef = collection(db, FLEETS_COLLECTION);
+  const q = query(fleetRef, orderBy("createdAt", "desc"));
+
+  onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added") {
+        const newFleet = applyDefaultFleetFields(change.doc.data());
+        newFleet.id = change.doc.id;
+
+        // Ensure it doesn't duplicate if already added
+        const existingFleet = document.querySelector(`[data-id="${newFleet.id}"]`);
+        if (!existingFleet) {
+          prependFleetToFeed(newFleet); // Add to the top
+        }
+      }
+    });
+  });
+}
+function prependFleetToFeed(fleet) {
+  const fleetItem = document.createElement("div");
+  fleetItem.className = "fleet-item";
+
+  // Render fleet content
+  fleetItem.innerHTML = `
+    <div class="user-info-overlay">
+      <img src="${fleet.avatar || "https://via.placeholder.com/60"}" alt="User Avatar">
+      <span>${fleet.username}</span>
+    </div>
+    ${
+      fleet.type.startsWith("image/")
+        ? `<img src="${fleet.data}" alt="${fleet.title}" />`
+        : `<video src="${fleet.data}" controls autoplay muted></video>`
+    }
+    <div class="text-content">
+      <h2>${fleet.title}</h2>
+      <p>${fleet.description}</p>
+    </div>
+  `;
+
+  fleetContainer.prepend(fleetItem); // Add to the top of the feed
+}
+
+window.onload = async () => {
+  await loadUserProfile();
+  await loadFleets();
+  initializeFleetListener(); // Start listening for live updates
+};
+
       async function refreshUI() {
   await loadUserProfile(); // refresh user profile information
   await loadFleets();      // reload fleet data
@@ -1453,18 +1501,24 @@ async function loadFleets() {
       userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
     }
 
-   async function addFleetToFirestore(fleetData) {
-  // Merge user-provided fleetData with defaults
+async function addFleetToFirestore(fleetData) {
   const completeFleetData = { 
     ...defaultFleetFields, 
     ...fleetData,
     userId: currentUser.userId,
     username: currentUser.username,
     avatar: currentUser.avatar,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+      lastInteracted: Date.now() // Initialize to createdAt
   };
-  await addDoc(collection(db, FLEETS_COLLECTION), completeFleetData);
+
+  // Add to Firestore
+  const docRef = await addDoc(collection(db, FLEETS_COLLECTION), completeFleetData);
+
+  // Prepend to feed immediately
+  prependFleetToFeed({ ...completeFleetData, id: docRef.id });
 }
+
 async function compressFile(file, maxDimension = 1024) {
   return new Promise((resolve, reject) => {
     if (file.type.startsWith("image/")) {
