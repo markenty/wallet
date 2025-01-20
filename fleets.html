@@ -1033,20 +1033,29 @@ document.getElementById("setParentMainBtn").addEventListener("click", async () =
       });
 
       // Save new password
-      document.getElementById("savePasswordBtn").addEventListener("click", async () => {
-        const currentPwd = document.getElementById("currentPasswordInput").value;
-        const newPwd = document.getElementById("newPasswordInput").value;
-        if (currentPwd === currentUser.password) {
-          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
-            ...currentUser,
-            password: newPwd
-          });
-          currentUser.password = newPwd;
-          alert("Password updated.");
-        } else {
-          alert("Current password is incorrect.");
-        }
-      });
+     document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+  const currentPwd = document.getElementById("currentPasswordInput").value.trim();
+  const newPwd = document.getElementById("newPasswordInput").value.trim();
+
+  if (!newPwd) {
+    alert("New password cannot be empty.");
+    return;
+  }
+
+  if (currentUser.username === "Anonymous") {
+    // Skip current password validation for anonymous users
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), { password: newPwd });
+    currentUser.password = newPwd; // Update the local user object
+    alert("Password updated successfully!");
+  } else if (currentPwd === currentUser.password) {
+    // Regular password validation for registered users
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), { password: newPwd });
+    currentUser.password = newPwd; // Update the local user object
+    alert("Password updated successfully!");
+  } else {
+    alert("Current password is incorrect.");
+  }
+});
 
       // Account Switcher Setup
       const switchBtn = document.getElementById("switchAccountBtn");
