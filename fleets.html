@@ -179,7 +179,44 @@ a:active {
   .modal-content h1 {
     font-size: 1.5rem;
   }
+}/* Interaction buttons container */
+.interaction-container {
+  position: absolute;
+  right: 10px;
+  bottom: 160px; /* Ensure it's above the Create button */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px; /* Add spacing between buttons */
+  z-index: 2; /* Ensure it appears above other elements */
 }
+
+/* Individual interaction buttons */
+.interaction-button {
+  background: rgba(255, 255, 255, 0.1); /* Transparent background for better contrast */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px; /* Larger, tappable size */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+  transition: transform 0.2s, background 0.3s;
+}
+
+.interaction-button:hover {
+  background: rgba(255, 255, 255, 0.2); /* Highlight effect on hover */
+  transform: scale(1.1); /* Slight zoom effect */
+}
+
+.interaction-button:active {
+  transform: scale(1); /* Reset scale on click */
+}
+
   </style>
 </head>
 <body>
@@ -202,40 +239,117 @@ import {
 
 
     // Firebase initialization
-    const firebaseConfig = {
-      apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
-      authDomain: "publicledger-31ea9.firebaseapp.com",
-      projectId: "publicledger-31ea9",
-      storageBucket: "publicledger-31ea9.appspot.com",
-      messagingSenderId: "648981585684",
-      appId: "1:648981585684:web:45d586d38fe547dea7ac01",
-      measurementId: "G-9HMX2CDY1W"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+      
+const firebaseConfig = {
+  apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
+  authDomain: "publicledger-31ea9.firebaseapp.com",
+  projectId: "publicledger-31ea9",
+  storageBucket: "publicledger-31ea9.appspot.com",
+  messagingSenderId: "648981585684",
+  appId: "1:648981585684:web:45d586d38fe547dea7ac01",
+  measurementId: "G-9HMX2CDY1W"
+};
+async function toggleLike(fleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to like this fleet.");
+    return;
+  }
+async function toggleRepost(fleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to repost this fleet.");
+    return;
+  }
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const reposts = fleetData.reposts || [];
+    const userIdIndex = reposts.indexOf(currentUser.userId);
+
+    if (userIdIndex >= 0) {
+      // User has already reposted, so remove the repost
+      reposts.splice(userIdIndex, 1);
+    } else {
+      // User has not reposted, so add their repost
+      reposts.push(currentUser.userId);
+    }
+
+    // Update Firestore with the new reposts array
+    await updateDoc(fleetRef, { reposts });
+
+    console.log("Reposts updated:", reposts);
+  } else {
+    console.error("Fleet not found.");
+  }
+}
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const likes = fleetData.likes || [];
+    const userIdIndex = likes.indexOf(currentUser.userId);
+
+    if (userIdIndex >= 0) {
+      // User has already liked, so remove the like
+      likes.splice(userIdIndex, 1);
+    } else {
+      // User has not liked, so add their like
+      likes.push(currentUser.userId);
+    }
+
+    // Update Firestore with the new likes array
+    await updateDoc(fleetRef, { likes });
+
+    console.log("Likes updated:", likes);
+  } else {
+    console.error("Fleet not found.");
+  }
+}
+
+// Firebase initialization
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 
     // Constants
+      
     const USERS_COLLECTION = "users";
-    const FLEETS_COLLECTION = "fleets";
-      const defaultFleetFields = {
-  title: '',
-  description: '',
-  type: '',
-  data: '',
-  userId: '',
-  username: '',
-  avatar: '',
-  createdAt: 0
+const defaultUserFields = {
+  userId: '',                 // Unique identifier for the user
+  username: 'Anonymous',      // Default username
+  avatar: 'https://via.placeholder.com/60', // Default avatar
+  password: null,             // Password (hashed if security is implemented)
+  accountType: 'main',        // Either 'main' or 'sub'
+  parentMain: null            // Reference to parent account (if sub)
 };
-      const defaultUserFields = {
-  userId: '',
-  username: 'Anonymous',
-  password: null,
-  avatar: 'https://via.placeholder.com/60',
-  accountType: 'main',  // 'main' or 'sub'
-  parentMain: null      // parent main account ID if sub-account, else null
+ 
+      const FLEETS_COLLECTION = "fleets";
+const defaultFleetFields = {
+  fleetId: '',                // Unique identifier for the fleet
+  userId: '',                 // Creator's user ID
+  username: '',               // Creator's username
+  avatar: '',                 // Creator's avatar
+  type: '',                   // Media type (e.g., image/jpeg, video/mp4)
+  data: '',                   // Base64-encoded media content
+  title: '',                  // Fleet title
+  description: '',            // Fleet description
+  createdAt: 0,               // Timestamp of creation
+  likes: [],                  // Array of user IDs who liked the fleet
+  reposts: [],                // Array of user IDs who reposted the fleet
+  comments: [                 // Array of comment objects
+    {
+      userId: '',             // Commenter's user ID
+      username: '',           // Commenter's username
+      avatar: '',             // Commenter's avatar
+      comment: '',            // Comment text
+      timestamp: 0            // Timestamp of the comment
+    }
+  ]
 };
-
     // DOM Elements
     const fleetContainer = document.getElementById("fleetContainer");
     const addFleetBtn = document.getElementById("addFleetBtn");
@@ -250,6 +364,7 @@ import {
       password: null
     };
 // functions
+      
       async function refreshUI() {
   await loadUserProfile(); // refresh user profile information
   await loadFleets();      // reload fleet data
@@ -782,17 +897,27 @@ document.getElementById("createAccountLink").addEventListener("click", (event) =
     });
 
     // Fleet Management Functions
-  async function fetchFleets() {
+ async function fetchFleets() {
   const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
   const fleets = [];
-  querySnapshot.forEach(docSnap => {
-    // Apply default fields to ensure consistency
-    const fleetWithDefaults = applyDefaultFleetFields(docSnap.data());
-    fleets.push({ id: docSnap.id, ...fleetWithDefaults });
 
-    // Optional: Update Firestore if fleet was missing fields
-    // await updateDoc(doc(db, FLEETS_COLLECTION, docSnap.id), fleetWithDefaults);
-  });
+  for (const docSnap of querySnapshot.docs) {
+    const fleet = applyDefaultFleetFields(docSnap.data());
+
+    // If this fleet is a repost, fetch the original fleet's repost count
+    if (fleet.repostedFrom) {
+      const originalFleetRef = doc(db, FLEETS_COLLECTION, fleet.repostedFrom);
+      const originalFleetSnap = await getDoc(originalFleetRef);
+
+      if (originalFleetSnap.exists()) {
+        const originalFleet = originalFleetSnap.data();
+        fleet.reposts = originalFleet.reposts || [];
+      }
+    }
+
+    fleets.push({ id: docSnap.id, ...fleet });
+  }
+
   return fleets;
 }
 
@@ -800,6 +925,105 @@ document.getElementById("createAccountLink").addEventListener("click", (event) =
       const fleetItem = document.createElement("div");
       fleetItem.className = "fleet-item";
 
+        if (fleet.repostedFrom) {
+  const repostInfo = document.createElement("div");
+  repostInfo.className = "repost-info";
+  repostInfo.textContent = `Reposted from ${fleet.repostedFrom}`;
+  fleetItem.appendChild(repostInfo);
+}
+// Interaction buttons container
+  const interactionContainer = document.createElement("div");
+  interactionContainer.className = "interaction-container";
+
+  // Like button
+  const likeBtn = document.createElement("button");
+  likeBtn.className = "interaction-button";
+  likeBtn.textContent = `❤️ ${fleet.likes?.length || 0}`;
+  likeBtn.addEventListener("click", async () => {
+    await toggleLike(fleet.id);
+    refreshUI(); // Refresh fleet data
+  });
+async function repostFleet(originalFleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to repost this fleet.");
+    return;
+  }
+
+  const originalFleetRef = doc(db, FLEETS_COLLECTION, originalFleetId);
+  const originalFleetSnap = await getDoc(originalFleetRef);
+
+  if (originalFleetSnap.exists()) {
+    const originalFleet = originalFleetSnap.data();
+
+    // Check if the user has already reposted this fleet
+    if (originalFleet.reposts && originalFleet.reposts.includes(currentUser.userId)) {
+      alert("You have already reposted this fleet.");
+      return;
+    }
+
+    // Create a new reposted fleet for the subaccount or main account
+    const repostedFleet = {
+      ...originalFleet,
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      createdAt: Date.now(),
+      repostedFrom: originalFleetId, // Reference to the original fleet
+    };
+
+    // Remove unnecessary fields for the reposted fleet
+    delete repostedFleet.fleetId;
+    delete repostedFleet.likes;
+    delete repostedFleet.reposts;
+    delete repostedFleet.comments;
+
+    // Save the reposted fleet to Firestore
+    await addDoc(collection(db, FLEETS_COLLECTION), repostedFleet);
+
+    // Update the original fleet's reposts array with the subaccount's ID
+    await updateDoc(originalFleetRef, {
+      reposts: Array.from(new Set([...(originalFleet.reposts || []), currentUser.userId])),
+    });
+
+    alert("Fleet reposted successfully!");
+  } else {
+    alert("Original fleet not found.");
+  }
+}
+
+
+
+  // Repost button
+const repostBtn = document.createElement("button");
+repostBtn.className = "interaction-button";
+
+// If this fleet is reposted, display the count from the original fleet
+const originalFleetId = fleet.repostedFrom || fleet.id;
+repostBtn.textContent = `🔁 ${fleet.reposts?.length || 0}`;
+
+// Add event listener for reposting
+repostBtn.addEventListener("click", async () => {
+  await repostFleet(originalFleetId);
+  loadFleets(); // Refresh fleet data to update repost counter
+});
+
+
+
+  // Comment button
+  const commentBtn = document.createElement("button");
+  commentBtn.className = "interaction-button";
+  commentBtn.textContent = "💬";
+  commentBtn.addEventListener("click", () => {
+    openCommentPanel(fleet.id);
+  });
+
+  // Append buttons to interaction container
+  interactionContainer.appendChild(likeBtn);
+  interactionContainer.appendChild(repostBtn);
+  interactionContainer.appendChild(commentBtn);
+
+  // Append interaction container to fleet item
+  fleetItem.appendChild(interactionContainer);
       // Add delete button if owner
       if (fleet.userId === currentUser.userId) {
         const deleteBtn = document.createElement("button");
