@@ -412,14 +412,6 @@ async function loadFleetsWithCache() {
   fleetContainer.innerHTML = ""; // Clear old data
   fetchedFleets.forEach(renderFleet); // Render new fleets
 }
-const prefetchFleets = async () => {
-  const fleets = await fetchFleets();
-  fleets.slice(0, 5).forEach((fleet) => {
-    const img = new Image();
-    img.src = fleet.data;
-  });
-};
-window.onload = prefetchFleets;
 
       
 const firebaseConfig = {
