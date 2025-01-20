@@ -216,20 +216,150 @@ a:active {
 .interaction-button:active {
   transform: scale(1); /* Reset scale on click */
 }
+.comment-panel {
+  position: fixed;
+  bottom: -100%; /* Hidden by default */
+  left: 0;
+  width: 100%;
+  height: 40%;
+  background: #222;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  transition: bottom 0.3s ease-in-out;
+  z-index: 1000;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
+}
 
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #333;
+  border-bottom: 1px solid #444;
+}
+
+.comment-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.comment-input {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #444;
+}
+
+.comment-input input {
+  flex: 1;
+  padding: 10px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 5px;
+}
+
+.comment-input button {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+/* Interaction button style */
+.interaction-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: orange;
+  border: 2px solid rgba(0, 123, 255, 0.8); /* Blue border */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px; /* Adjust font size for better visibility */
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+  transition: transform 0.2s, background 0.3s, border 0.3s;
+}
+
+/* Highlight effect on hover */
+.interaction-button:hover {
+  background: rgba(0, 123, 255, 0.2);
+  border-color: rgba(0, 123, 255, 1); /* Brighten border on hover */
+  transform: scale(1.1);
+}
+
+/* Active state reset */
+.interaction-button:active {
+  transform: scale(1);
+}
+
+/* Interaction count style */
+.interaction-button span {
+  color: rgba(0, 123, 255, 1); /* Blue text color */
+  text-shadow: 0 0 2px rgba(0, 123, 255, 0.8); /* Add subtle glow */
+}
+      
+.loading-spinner {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.2);
+  border-top: 5px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
   </style>
 </head>
 <body>
   <div class="overlay" id="overlay">
     <div class="modal-content"></div>
   </div>
-
+<div class="loading-spinner" id="loadingSpinner">
+  <div class="spinner"></div>
+</div>
   <div class="fleet-container" id="fleetContainer"></div>
 
   <div class="add-fleet-btn" id="addFleetBtn">+</div>
   <div class="user-avatar" id="userAvatar">
     <img src="https://via.placeholder.com/60" alt="User Avatar" />
   </div>
+<div id="commentPanel" class="comment-panel">
+  <div class="comment-header">
+    <h3>Comments</h3>
+    <button id="closeCommentPanel">Close</button>
+  </div>
+  <div id="commentList" class="comment-list"></div>
+  <div class="comment-input">
+    <input type="text" id="commentInput" placeholder="Add a comment..." />
+    <button id="postCommentBtn">Post</button>
+  </div>
+</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
@@ -239,6 +369,58 @@ import {
 
 
     // Firebase initialization
+  let lastVisible = null; // To keep track of the last document
+const pageSize = 10; // Number of fleets to load per request
+
+async function fetchFleetsPaginated() {
+  const queryRef = collection(db, FLEETS_COLLECTION);
+  let fleetQuery;
+
+  if (lastVisible) {
+    fleetQuery = query(queryRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+  } else {
+    fleetQuery = query(queryRef, orderBy("createdAt", "desc"), limit(pageSize));
+  }
+
+  const querySnapshot = await getDocs(fleetQuery);
+  const fleets = [];
+  querySnapshot.forEach((doc) => {
+    const fleet = applyDefaultFleetFields(doc.data());
+    fleets.push({ id: doc.id, ...fleet });
+  });
+
+  lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1]; // Update last visible document
+  return fleets;
+}
+
+// Call fetchFleetsPaginated() whenever user scrolls to the bottom
+window.addEventListener("scroll", async () => {
+  if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
+    const newFleets = await fetchFleetsPaginated();
+    newFleets.forEach(renderFleet);
+  }
+});  
+
+async function loadFleetsWithCache() {
+  const cachedFleets = JSON.parse(localStorage.getItem("cachedFleets")) || [];
+  if (cachedFleets.length) {
+    cachedFleets.forEach(renderFleet); // Render cached fleets
+  }
+
+  const fetchedFleets = await fetchFleets();
+  localStorage.setItem("cachedFleets", JSON.stringify(fetchedFleets));
+  fleetContainer.innerHTML = ""; // Clear old data
+  fetchedFleets.forEach(renderFleet); // Render new fleets
+}
+const prefetchFleets = async () => {
+  const fleets = await fetchFleets();
+  fleets.slice(0, 5).forEach((fleet) => {
+    const img = new Image();
+    img.src = fleet.data;
+  });
+};
+window.onload = prefetchFleets;
+
       
 const firebaseConfig = {
   apiKey: "AIzaSyAJzbvnRaiIfjhiLWAHtnCRH8_PPwjQU9k",
@@ -249,6 +431,147 @@ const firebaseConfig = {
   appId: "1:648981585684:web:45d586d38fe547dea7ac01",
   measurementId: "G-9HMX2CDY1W"
 };
+
+      let activeFleetId = null; // To track which fleet's comments are open
+
+function openCommentPanel(fleetId) {
+  const commentPanel = document.getElementById("commentPanel");
+  commentPanel.style.bottom = "0";
+  activeFleetId = fleetId; // Set the active fleet
+  loadComments(fleetId); // Load comments for the fleet
+}
+
+function closeCommentPanel() {
+  const commentPanel = document.getElementById("commentPanel");
+  commentPanel.style.bottom = "-100%";
+  activeFleetId = null; // Clear active fleet
+}
+async function loadComments(fleetId) {
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+    renderComments(comments);
+  }
+}
+
+function renderComments(comments, parentElement = document.getElementById("commentList")) {
+  parentElement.innerHTML = ""; // Clear existing comments
+
+  comments.forEach((comment, index) => {
+    const commentDiv = document.createElement("div");
+    commentDiv.className = "comment-item";
+    commentDiv.innerHTML = `
+      <div>
+        <strong>${comment.username}</strong> 
+        <span>${new Date(comment.timestamp).toLocaleString()}</span>
+        <p>${comment.comment}</p>
+        ${
+          comment.userId === currentUser.userId
+            ? `<button onclick="deleteComment(${index})">Delete</button>`
+            : ""
+        }
+        <button onclick="replyToComment(${index})">Reply</button>
+      </div>
+      <div class="nested-comments"></div>
+    `;
+    parentElement.appendChild(commentDiv);
+
+    // Render nested comments
+    if (comment.replies && comment.replies.length) {
+      const nestedContainer = commentDiv.querySelector(".nested-comments");
+      renderComments(comment.replies, nestedContainer);
+    }
+  });
+}
+document.getElementById("postCommentBtn").addEventListener("click", async () => {
+  const commentInput = document.getElementById("commentInput");
+  const commentText = commentInput.value.trim();
+
+  if (!commentText) {
+    alert("Comment cannot be empty.");
+    return;
+  }
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    const newComment = {
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      comment: commentText,
+      timestamp: Date.now(),
+      replies: [], // For nested replies
+    };
+
+    comments.push(newComment);
+
+ // Update Firestore with the new comments array
+    await updateDoc(fleetRef, { comments });
+    commentInput.value = ""; // Clear input
+    loadFleets(); // Refresh fleets to update the comment count
+    loadComments(activeFleetId); // Refresh comments in the panel
+  }
+});
+async function deleteComment(commentIndex) {
+  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    if (comments[commentIndex].userId === currentUser.userId) {
+      comments.splice(commentIndex, 1); // Remove the comment
+      await updateDoc(fleetRef, { comments }); // Update Firestore
+      loadFleets(); // Refresh fleets to update the comment count
+      loadComments(activeFleetId); // Refresh comments in the panel
+    } else {
+      alert("You can only delete your own comments.");
+    }
+  }
+}
+async function replyToComment(commentIndex) {
+  const replyText = prompt("Enter your reply:");
+  if (!replyText) return;
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    const reply = {
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      comment: replyText,
+      timestamp: Date.now(),
+    };
+
+    if (!comments[commentIndex].replies) {
+      comments[commentIndex].replies = [];
+    }
+
+    comments[commentIndex].replies.push(reply);
+
+    // Update Firestore with the reply
+    await updateDoc(fleetRef, { comments });
+    loadComments(activeFleetId); // Refresh comments
+  }
+}
+
+// Attach close button functionality
+document.getElementById("closeCommentPanel").addEventListener("click", closeCommentPanel);
+
 async function toggleLike(fleetId) {
   if (!currentUser || !currentUser.userId) {
     alert("Please log in to like this fleet.");
@@ -303,6 +626,11 @@ async function toggleRepost(fleetId) {
 
     // Update Firestore with the new likes array
     await updateDoc(fleetRef, { likes });
+  // Update Firestore with the new likes array and last interacted timestamp
+    await updateDoc(fleetRef, {
+      likes,
+      lastInteracted: Date.now(),
+    });
 
     console.log("Likes updated:", likes);
   } else {
@@ -897,7 +1225,7 @@ document.getElementById("createAccountLink").addEventListener("click", (event) =
     });
 
     // Fleet Management Functions
- async function fetchFleets() {
+async function fetchFleets() {
   const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
   const fleets = [];
 
@@ -912,14 +1240,29 @@ document.getElementById("createAccountLink").addEventListener("click", (event) =
       if (originalFleetSnap.exists()) {
         const originalFleet = originalFleetSnap.data();
         fleet.reposts = originalFleet.reposts || [];
+           fleet.comments = originalFleet.comments || [];
       }
     }
 
+    // Calculate the activity score for sorting
+    const likesCount = fleet.likes?.length || 0;
+    const repostsCount = fleet.reposts?.length || 0;
+    const commentsCount = fleet.comments?.length || 0;
+
+    fleet.activityScore = likesCount * 1 + repostsCount * 2 + commentsCount * 3; // Example weighting
     fleets.push({ id: docSnap.id, ...fleet });
   }
 
+  // Sort fleets by last interacted timestamp (if exists), activity score, and recency
+  fleets.sort((a, b) =>
+    (b.lastInteracted || 0) - (a.lastInteracted || 0) || // Promote recently interacted fleets
+    b.activityScore - a.activityScore || 
+    b.createdAt - a.createdAt
+  );
+
   return fleets;
 }
+
 
     function renderFleet(fleet) {
       const fleetItem = document.createElement("div");
@@ -1009,10 +1352,10 @@ repostBtn.addEventListener("click", async () => {
 
 
 
-  // Comment button
+ // Comment button with count
   const commentBtn = document.createElement("button");
   commentBtn.className = "interaction-button";
-  commentBtn.textContent = "💬";
+  commentBtn.textContent = `💬 ${fleet.comments?.length || 0}`;
   commentBtn.addEventListener("click", () => {
     openCommentPanel(fleet.id);
   });
@@ -1069,12 +1412,22 @@ repostBtn.addEventListener("click", async () => {
       fleetContainer.appendChild(fleetItem);
     }
 
-    async function loadFleets() {
-      fleetContainer.innerHTML = "";
-      const fleets = await fetchFleets();
-      fleets.forEach(renderFleet);
-    }
+ let cachedFleets = [];
 
+async function loadFleets() {
+ const spinner = document.getElementById("loadingSpinner");
+  fleetContainer.innerHTML = ""; // Clear previous fleets
+  spinner.style.display = "flex";
+
+  try {
+    const fleets = await fetchFleets();
+    spinner.style.display = "none";
+    fleets.forEach(renderFleet);
+  } catch (error) {
+    console.error("Error loading fleets:", error);
+    spinner.style.display = "none";
+  }
+}
     async function loadUserProfile() {
       let userId = localStorage.getItem("userId");
       if (!userId) {
