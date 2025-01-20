@@ -1477,7 +1477,7 @@ async function loadFleets() {
           userId,
           avatar: "https://via.placeholder.com/60",
           username: "Anonymous",
-          password: null
+          password: "null"
         };
         await setDoc(doc(db, USERS_COLLECTION, userId), currentUser);
         localStorage.setItem("userId", userId);
