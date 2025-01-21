@@ -468,42 +468,31 @@ async function fixCommentTimestamps() {
 
   alert("Timestamps for comments have been fixed.");
 }
-function renderComments(comments, parentElement = document.getElementById("commentList")) {
+function renderComments(comments = [], fleetId, parentElement = document.getElementById("commentList")) {
   parentElement.innerHTML = ""; // Clear existing comments
 
   comments.forEach((comment, index) => {
     const commentDiv = document.createElement("div");
     commentDiv.className = "comment-item";
 
-    // Format the timestamp
     const formattedTimestamp = comment.timestamp
       ? new Date(comment.timestamp).toLocaleString()
-      : "Invalid timestamp";
+      : "No timestamp available";
 
+    // Add comment content
     commentDiv.innerHTML = `
       <div>
-        <strong>${comment.username}</strong> 
+        <strong>${comment.username || "Unknown User"}</strong>
         <span>${formattedTimestamp}</span>
-        <p>${comment.comment}</p>
-        ${
-          comment.userId === currentUser.userId
-            ? `<button onclick="deleteComment(${index})">Delete</button>`
-            : ""
-        }
-        <button onclick="replyToComment(${index})">Reply</button>
+        <p>${comment.comment || "No content"}</p>
       </div>
-      <div class="nested-comments"></div>
     `;
-    parentElement.appendChild(commentDiv);
 
-    // Render nested comments
-    if (comment.replies && comment.replies.length) {
-      const nestedContainer = commentDiv.querySelector(".nested-comments");
-      renderComments(comment.replies, nestedContainer);
-    }
+ 
+    parentElement.appendChild(commentDiv);
   });
 }
-      
+
 document.getElementById("postCommentBtn").addEventListener("click", async () => {
   const commentInput = document.getElementById("commentInput");
   const commentText = commentInput.value.trim();
@@ -538,24 +527,54 @@ document.getElementById("postCommentBtn").addEventListener("click", async () => 
     loadComments(activeFleetId); // Refresh comments in the panel
   }
 });
-async function deleteComment(commentIndex) {
-  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
-  const fleetSnap = await getDoc(fleetRef);
+async function deleteComment(fleetId, commentIndex) {
+  try {
+    console.log("Attempting to delete comment with fleetId:", fleetId, "and commentIndex:", commentIndex);
 
-  if (fleetSnap.exists()) {
+    const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+    const fleetSnap = await getDoc(fleetRef);
+
+    if (!fleetSnap.exists()) {
+      console.error("Fleet document not found for fleetId:", fleetId);
+      alert("Fleet not found.");
+      return;
+    }
+
     const fleetData = fleetSnap.data();
     const comments = fleetData.comments || [];
+    console.log("Current comments array before deletion:", comments);
 
-    if (comments[commentIndex].userId === currentUser.userId) {
-      comments.splice(commentIndex, 1); // Remove the comment
-      await updateDoc(fleetRef, { comments }); // Update Firestore
-      loadFleets(); // Refresh fleets to update the comment count
-      loadComments(activeFleetId); // Refresh comments in the panel
-    } else {
-      alert("You can only delete your own comments.");
+    // Validate the index
+    if (commentIndex < 0 || commentIndex >= comments.length) {
+      console.error("Invalid comment index:", commentIndex);
+      alert("Invalid comment index.");
+      return;
     }
+
+    // Validate ownership
+    const commentToDelete = comments[commentIndex];
+    if (commentToDelete.userId !== currentUser.userId) {
+      console.error("Unauthorized deletion attempt by user:", currentUser.userId);
+      alert("You can only delete your own comments.");
+      return;
+    }
+
+    // Remove the comment
+    comments.splice(commentIndex, 1);
+
+    // Update Firestore
+    await updateDoc(fleetRef, { comments });
+    console.log("Comment deleted successfully.");
+    loadComments(fleetId); // Refresh comments
+  } catch (error) {
+    console.error("Error deleting comment:", error.message);
+    alert("Failed to delete the comment.");
   }
 }
+
+
+
+
 async function replyToComment(commentIndex) {
   const replyText = prompt("Enter your reply:");
   if (!replyText) return;
