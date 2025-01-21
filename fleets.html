@@ -448,17 +448,42 @@ async function loadComments(fleetId) {
     renderComments(comments);
   }
 }
+async function fixCommentTimestamps() {
+  const fleetSnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
 
+  fleetSnapshot.forEach(async (docSnap) => {
+    const fleetData = docSnap.data();
+    const comments = fleetData.comments || [];
+
+    const updatedComments = comments.map((comment) => {
+      if (!comment.timestamp || comment.timestamp <= 0) {
+        return { ...comment, timestamp: Date.now() }; // Assign a valid timestamp
+      }
+      return comment;
+    });
+
+    // Update Firestore with fixed comments
+    await updateDoc(doc(db, FLEETS_COLLECTION, docSnap.id), { comments: updatedComments });
+  });
+
+  alert("Timestamps for comments have been fixed.");
+}
 function renderComments(comments, parentElement = document.getElementById("commentList")) {
   parentElement.innerHTML = ""; // Clear existing comments
 
   comments.forEach((comment, index) => {
     const commentDiv = document.createElement("div");
     commentDiv.className = "comment-item";
+
+    // Format the timestamp
+    const formattedTimestamp = comment.timestamp
+      ? new Date(comment.timestamp).toLocaleString()
+      : "Invalid timestamp";
+
     commentDiv.innerHTML = `
       <div>
         <strong>${comment.username}</strong> 
-        <span>${new Date(comment.timestamp).toLocaleString()}</span>
+        <span>${formattedTimestamp}</span>
         <p>${comment.comment}</p>
         ${
           comment.userId === currentUser.userId
@@ -478,6 +503,7 @@ function renderComments(comments, parentElement = document.getElementById("comme
     }
   });
 }
+      
 document.getElementById("postCommentBtn").addEventListener("click", async () => {
   const commentInput = document.getElementById("commentInput");
   const commentText = commentInput.value.trim();
@@ -660,15 +686,7 @@ const defaultFleetFields = {
   createdAt: 0,               // Timestamp of creation
   likes: [],                  // Array of user IDs who liked the fleet
   reposts: [],                // Array of user IDs who reposted the fleet
-  comments: [                 // Array of comment objects
-    {
-      userId: '',             // Commenter's user ID
-      username: '',           // Commenter's username
-      avatar: '',             // Commenter's avatar
-      comment: '',            // Comment text
-      timestamp: 0            // Timestamp of the comment
-    }
-  ]
+  comments: [],                 // Array of comment objects
 };
     // DOM Elements
     const fleetContainer = document.getElementById("fleetContainer");
