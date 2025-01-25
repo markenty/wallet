@@ -237,7 +237,17 @@
 import { getFirestore, doc, getDoc, updateDoc, addDoc, collection, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 
-
+// Check session on page load
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        // User is logged in, display main content
+        initializeMainContent(user);
+    } else {
+        // User is logged out, show login form
+        showLoginForm();
+    }
+});      
+        
         const firebaseConfig = {
             apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
             authDomain: "wallet-18aba.firebaseapp.com",
