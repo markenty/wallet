@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mining Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, select, button {
+            margin: 5px 0;
+        }
+        #mine-progress {
+            margin-top: 10px;
+        }
+        /* Arcade-style button styling */
+        .arcade-button {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 12px;
+            box-shadow: 0 5px #999;
+            transition: all 0.2s ease;
+        }
+        .arcade-button:active {
+            box-shadow: 0 2px #666;
+            transform: translateY(4px);
+        }
+        /* Hide main content until user is authenticated */
+        #main-content {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mining Interface</h1>
+
+    <!-- Authentication Section -->
+    <div id="auth-section">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email" required><br>
+        <input type="password" id="password" placeholder="Password" required><br>
+        <button id="login-button">Login</button>
+        <p>Don't have an account? <a href="#" id="show-register">Register here</a></p>
+    </div>
+
+    <!-- Registration Section (Initially Hidden) -->
+    <div id="register-section" style="display: none;">
+        <h2>Register</h2>
+        <input type="email" id="reg-email" placeholder="Email" required><br>
+        <input type="password" id="reg-password" placeholder="Password" required><br>
+        <button id="register-button">Register</button>
+        <p>Already have an account? <a href="#" id="show-login">Login here</a></p>
+    </div>
+
+    <!-- Main Content (Visible After Authentication) -->
+    <div id="main-content"">
+        
+<p><strong>Logged in as:</strong> <span id="user-email">user@example.com</span></p>
+<h2>Earn coins by returning every day</h2>
+        <button id="mine-button" class="arcade-button">MINE</button>
+        <div id="mine-progress"></div>
+        <button id="logout-button">Logout</button>
+        <div id="summary">
+            <h2>Summary</h2>
+            <p><strong>Total Coin Supply:</strong> <span id="total-coins">21000000</span> coins</p>
+            <p><strong>Your Balance:</strong> <span id="user-balance">0</span> coins</p>
+            <p><strong>Remaining Supply:</strong> <span id="remaining-supply">21000000</span> coins</p>
+        </div>
+
+        
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const totalCoins = 21000000; // Total supply of coins
+        const miningReward = 50; // Reward per mining operation
+        let currentCirculation = 0; // Coins distributed to users
+
+        // Function to update summary section
+        async function updateSummary(uid) {
+            document.getElementById("total-coins").innerText = totalCoins;
+
+            // Fetch user's balance
+            const userDoc = await getDoc(doc(db, "users", uid));
+            const userData = userDoc.exists() ? userDoc.data() : { balance: 0 };
+            document.getElementById("user-balance").innerText = userData.balance;
+
+            // Fetch current circulation
+            const circulationDoc = await getDoc(doc(db, "system", "currentCirculation"));
+            currentCirculation = circulationDoc.exists() ? circulationDoc.data().value : 0;
+            document.getElementById("remaining-supply").innerText = totalCoins - currentCirculation;
+        }
+
+        // Show registration form
+        function showRegister() {
+            document.getElementById("auth-section").style.display = "none";
+            document.getElementById("register-section").style.display = "block";
+        }
+
+        // Show login form
+        function showLogin() {
+            document.getElementById("register-section").style.display = "none";
+            document.getElementById("auth-section").style.display = "block";
+        }
+
+        // Register new user
+        async function register() {
+            const email = document.getElementById("reg-email").value;
+            const password = document.getElementById("reg-password").value;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const uid = userCredential.user.uid;
+                // Initialize user data
+                await setDoc(doc(db, "users", uid), { balance: 0 });
+                // Initialize settings
+                await setDoc(doc(db, "settings", uid), { lastMined: null });
+                alert("Registration successful!");
+            } catch (error) {
+                console.error("Registration error:", error);
+                alert("Registration failed: " + error.message);
+            }
+        }
+
+        // Login existing user
+        async function login() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Login error:", error);
+                alert("Login failed: " + error.message);
+            }
+        }
+
+        // Logout user
+        async function logout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Logout error:", error);
+                alert("Logout failed: " + error.message);
+            }
+        }
+
+// Monitor authentication state
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        // User is signed in
+        document.getElementById("auth-section").style.display = "none";
+        document.getElementById("register-section").style.display = "none";
+        document.getElementById("main-content").style.display = "block";
+        
+        // Display the user's email
+        document.getElementById("user-email").innerText = user.email;
+        
+        await updateSummary(user.uid);
+        checkMiningStatus(user.uid);
+    } else {
+        // User is signed out
+        document.getElementById("auth-section").style.display = "block";
+        document.getElementById("register-section").style.display = "none";
+        document.getElementById("main-content").style.display = "none";
+        
+        // Clear the email display
+        document.getElementById("user-email").innerText = "";
+    }
+});
+        // Check if user has mined today
+        async function checkMiningStatus(uid) {
+            const settingsDoc = await getDoc(doc(db, "settings", uid));
+            if (settingsDoc.exists()) {
+                const lastMined = settingsDoc.data().lastMined;
+                if (lastMined) {
+                    const lastMinedDate = new Date(lastMined);
+                    const today = new Date();
+                    if (lastMinedDate.toDateString() === today.toDateString()) {
+                        // Already mined today
+                        disableMineButton();
+                    } else {
+                        enableMineButton();
+                    }
+                } else {
+                    enableMineButton();
+                }
+            } else {
+                // Create settings document if it doesn't exist
+                await setDoc(doc(db, "settings", uid), { lastMined: null });
+                enableMineButton();
+            }
+        }
+
+        // Disable mine button
+        function disableMineButton() {
+            const mineButton = document.getElementById("mine-button");
+            mineButton.disabled = true;
+            mineButton.style.backgroundColor = "grey";
+            mineButton.innerText = "Mined Today";
+        }
+
+        // Enable mine button
+        function enableMineButton() {
+            const mineButton = document.getElementById("mine-button");
+            mineButton.disabled = false;
+            mineButton.style.backgroundColor = "red";
+            mineButton.innerText = "MINE";
+        }
+
+        // Simulate mining process
+        async function startMining() {
+            const user = auth.currentUser;
+            if (!user) {
+                alert("User not authenticated.");
+                return;
+            }
+
+            const uid = user.uid;
+
+            // Disable button immediately to prevent multiple clicks
+            disableMineButton();
+            const progressContainer = document.getElementById("mine-progress");
+            progressContainer.innerHTML = "<p>Mining in progress...</p>";
+
+            setTimeout(async () => {
+                try {
+                    // Fetch user data
+                    const userDocRef = doc(db, "users", uid);
+                    const userDoc = await getDoc(userDocRef);
+                    const userData = userDoc.exists() ? userDoc.data() : { balance: 0 };
+
+                    // Check if mining is possible
+                    if (currentCirculation + miningReward > totalCoins) {
+                        progressContainer.innerHTML = "<p>Mining failed: Total supply exceeded.</p>";
+                        enableMineButton();
+                        return;
+                    }
+
+                    // Update user's balance
+                    const newBalance = userData.balance + miningReward;
+                    await updateDoc(userDocRef, { balance: newBalance });
+
+                    // Update current circulation
+                    currentCirculation += miningReward;
+                    const circulationDocRef = doc(db, "system", "currentCirculation");
+                    await setDoc(circulationDocRef, { value: currentCirculation }, { merge: true });
+
+                    // Log the transaction
+                    const transaction = {
+                        sender: "SYSTEM",
+                        receiver: uid,
+                        amount: miningReward,
+                        timestamp: new Date().toISOString(),
+                    };
+                    await setDoc(doc(db, "transactions", `${transaction.timestamp}-${uid}`), transaction);
+
+                    // Update user's last mined date in settings
+                    const settingsDocRef = doc(db, "settings", uid);
+                    await updateDoc(settingsDocRef, { lastMined: new Date().toISOString() });
+
+                    // Update UI
+                    document.getElementById("user-balance").innerText = newBalance;
+                    document.getElementById("remaining-supply").innerText = totalCoins - currentCirculation;
+                    progressContainer.innerHTML = `<p>Mining successful! ${miningReward} coins rewarded to your account.</p>`;
+                } catch (error) {
+                    console.error("Mining error:", error);
+                    progressContainer.innerHTML = "<p>Mining failed: Unable to process transaction.</p>";
+                    enableMineButton();
+                }
+            }, 2000); // Simulated delay for mining
+
+            // Ensure the mine button remains disabled until next day
+        }
+
+        // Attach Event Listeners after DOM is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            // Show registration form
+            document.getElementById("show-register").addEventListener("click", (e) => {
+                e.preventDefault();
+                showRegister();
+            });
+
+            // Show login form
+            document.getElementById("show-login").addEventListener("click", (e) => {
+                e.preventDefault();
+                showLogin();
+            });
+
+            // Register button
+            document.getElementById("register-button").addEventListener("click", async () => {
+                await register();
+            });
+
+            // Login button
+            document.getElementById("login-button").addEventListener("click", async () => {
+                await login();
+            });
+
+            // Logout button
+            document.getElementById("logout-button").addEventListener("click", async () => {
+                await logout();
+            });
+
+            // Mine button
+            document.getElementById("mine-button").addEventListener("click", async () => {
+                await startMining();
+            });
+        });
+    </script>
+</body>
+</html>

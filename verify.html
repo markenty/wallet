@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Verification, Wallet, and User Activity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button {
+            margin: 5px 0;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #wallet-info, #user-activity, #unverified-transactions, #send-receive {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        #unverified-transactions ul, #user-activity ul {
+            list-style: none;
+            padding: 0;
+        }
+        #unverified-transactions li, #user-activity li {
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #verification-info p, #wallet-info p, #send-receive p, #user-activity p {
+            font-size: 1.2em;
+        }
+        /* Additional styling for better UX */
+        .hidden {
+            display: none;
+        }
+        .arcade-button {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 12px;
+            box-shadow: 0 5px #999;
+            transition: all 0.2s ease;
+        }
+        .arcade-button:active {
+            box-shadow: 0 2px #666;
+            transform: translateY(4px);
+        }
+    </style>
+</head>
+<body>
+    <h1>Transaction Verification, Wallet, and User Activity</h1>
+
+    <!-- Authentication Section -->
+    <div id="auth-section">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email" required><br>
+        <input type="password" id="password" placeholder="Password" required><br>
+        <button id="login-button">Login</button>
+        <p>Don't have an account? <a href="#" id="show-register">Register here</a></p>
+    </div>
+
+    <!-- Registration Section (Initially Hidden) -->
+    <div id="register-section" class="hidden">
+        <h2>Register</h2>
+        <input type="email" id="reg-email" placeholder="Email" required><br>
+        <input type="password" id="reg-password" placeholder="Password" required><br>
+        <button id="register-button">Register</button>
+        <p>Already have an account? <a href="#" id="show-login">Login here</a></p>
+    </div>
+
+    <!-- Main Content (Visible After Authentication) -->
+    <div id="main-content" class="hidden">
+        <button id="logout-button">Logout</button>
+        <p><strong>Logged in as:</strong> <span id="user-email">user@example.com</span></p>
+
+        <div id="wallet-info">
+            <h2>Wallet Information</h2>
+            <p><strong>Your Wallet Balance:</strong> 💰 <span id="wallet-balance">0</span> Coins</p>
+        </div>
+
+        <div id="user-activity">
+            <h2>Your Activity</h2>
+            <ul id="activity-list">
+                <!-- Transactions will be listed here -->
+            </ul>
+        </div>
+
+        <div id="unverified-transactions" class="hidden">
+            <h2>Unverified Transactions</h2>
+            <ul id="unverified-list">
+                <!-- Unverified transactions will be listed here -->
+            </ul>
+            <button id="verify-button" class="arcade-button">Verify and Earn 10 Coins</button>
+        </div>
+
+        <div id="send-receive">
+            <h2>Send Coins</h2>
+            <input type="text" id="recipient-id" placeholder="Recipient Wallet/User ID"><br>
+            <input type="number" id="send-amount" placeholder="Amount"><br>
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+
+        // Authentication Elements
+        const authSection = document.getElementById("auth-section");
+        const registerSection = document.getElementById("register-section");
+        const mainContent = document.getElementById("main-content");
+        const showRegisterLink = document.getElementById("show-register");
+        const showLoginLink = document.getElementById("show-login");
+        const loginButton = document.getElementById("login-button");
+        const registerButton = document.getElementById("register-button");
+        const logoutButton = document.getElementById("logout-button");
+
+        // Main Content Elements
+        const userEmailSpan = document.getElementById("user-email");
+        const walletBalanceSpan = document.getElementById("wallet-balance");
+        const activityList = document.getElementById("activity-list");
+        const unverifiedList = document.getElementById("unverified-list");
+        const verifyButton = document.getElementById("verify-button");
+        const sendButton = document.getElementById("send-button");
+        const unverifiedTransactionsSection = document.getElementById("unverified-transactions");
+
+        // Show Registration Form
+        showRegisterLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            authSection.classList.add("hidden");
+            registerSection.classList.remove("hidden");
+        });
+
+        // Show Login Form
+        showLoginLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            registerSection.classList.add("hidden");
+            authSection.classList.remove("hidden");
+        });
+
+        // Register New User
+        registerButton.addEventListener("click", async () => {
+            const email = document.getElementById("reg-email").value.trim();
+            const password = document.getElementById("reg-password").value.trim();
+
+            if (!email || !password) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const uid = userCredential.user.uid;
+
+                // Initialize user data in Firestore
+                await setDoc(doc(db, "users", uid), {
+                    balance: 0
+                });
+
+                alert("Registration successful! Please log in.");
+                registerSection.classList.add("hidden");
+                authSection.classList.remove("hidden");
+            } catch (error) {
+                console.error("Registration Error:", error);
+                alert("Registration failed: " + error.message);
+            }
+        });
+
+        // Login Existing User
+        loginButton.addEventListener("click", async () => {
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+
+            if (!email || !password) {
+                alert("Please enter both email and password.");
+                return;
+            }
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // Successful login handled by onAuthStateChanged
+            } catch (error) {
+                console.error("Login Error:", error);
+                alert("Login failed: " + error.message);
+            }
+        });
+
+        // Logout User
+        logoutButton.addEventListener("click", async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Logout Error:", error);
+                alert("Logout failed: " + error.message);
+            }
+        });
+
+        // Monitor Authentication State
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                authSection.classList.add("hidden");
+                registerSection.classList.add("hidden");
+                mainContent.classList.remove("hidden");
+                userEmailSpan.innerText = user.email;
+
+                // Fetch and display wallet info
+                await fetchWalletInfo(user.uid);
+
+                // Fetch and display user activity
+                await fetchUserActivity(user.uid);
+
+                // Fetch and display unverified transactions
+                await fetchUnverifiedTransactions(user.uid);
+
+                // Set up real-time listeners for activity and unverified transactions
+                listenToUserActivity(user.uid);
+                listenToUnverifiedTransactions(user.uid);
+            } else {
+                currentUser = null;
+                authSection.classList.remove("hidden");
+                registerSection.classList.add("hidden");
+                mainContent.classList.add("hidden");
+                userEmailSpan.innerText = "";
+                walletBalanceSpan.innerText = "0";
+                activityList.innerHTML = "";
+                unverifiedList.innerHTML = "";
+                // Hide unverified transactions section
+                unverifiedTransactionsSection.classList.add("hidden");
+            }
+        });
+
+        // Fetch Wallet Information
+        async function fetchWalletInfo(uid) {
+            const userDoc = await getDoc(doc(db, "users", uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                walletBalanceSpan.innerText = userData.balance;
+            } else {
+                walletBalanceSpan.innerText = "0";
+            }
+        }
+
+        // Fetch User Activity
+        async function fetchUserActivity(uid) {
+            const sentQuery = query(collection(db, "transactions"), where("sender", "==", uid));
+            const receivedQuery = query(collection(db, "transactions"), where("receiver", "==", uid));
+
+            const sentSnapshot = await getDocs(sentQuery);
+            const receivedSnapshot = await getDocs(receivedQuery);
+
+            let activities = [];
+
+            sentSnapshot.forEach((doc) => {
+                activities.push(doc.data());
+            });
+
+            receivedSnapshot.forEach((doc) => {
+                activities.push(doc.data());
+            });
+
+            // Sort activities by timestamp descending
+            activities.sort((a, b) => {
+                return b.timestamp.toDate() - a.timestamp.toDate();
+            });
+
+            // Display activities
+            activityList.innerHTML = "";
+            if (activities.length === 0) {
+                activityList.innerHTML = "<p>No transaction activity for this user.</p>";
+            } else {
+                activities.forEach((tx) => {
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                          <strong>To:</strong> ${tx.receiver} <br>
+                                          <strong>Amount:</strong> ${tx.amount} <br>
+                                          <strong>Timestamp:</strong> ${tx.timestamp.toDate().toLocaleString()} <br>
+                                          <strong>Verified:</strong> ${tx.verified ? "Yes" : "No"}`;
+                    activityList.appendChild(listItem);
+                });
+            }
+        }
+
+        // Listen to User Activity in Real-Time
+        function listenToUserActivity(uid) {
+            const sentQuery = query(collection(db, "transactions"), where("sender", "==", uid));
+            const receivedQuery = query(collection(db, "transactions"), where("receiver", "==", uid));
+
+            onSnapshot(sentQuery, (querySnapshot) => {
+                fetchUserActivity(uid);
+            });
+
+            onSnapshot(receivedQuery, (querySnapshot) => {
+                fetchUserActivity(uid);
+            });
+        }
+
+        // Fetch Unverified Transactions
+        async function fetchUnverifiedTransactions(uid) {
+            const q = query(collection(db, "transactions"), where("verified", "==", false));
+
+            const querySnapshot = await getDocs(q);
+
+            let unverifiedTxs = [];
+
+            querySnapshot.forEach((doc) => {
+                const tx = doc.data();
+                // Exclude transactions involving the current user
+                if (tx.sender !== uid && tx.receiver !== uid) {
+                    unverifiedTxs.push({ id: doc.id, ...tx });
+                }
+            });
+
+            // Display unverified transactions
+            unverifiedList.innerHTML = "";
+            if (unverifiedTxs.length === 0) {
+                // Hide the entire Unverified Transactions section
+                unverifiedTransactionsSection.classList.add("hidden");
+            } else {
+                unverifiedTxs.forEach((tx) => {
+                    const listItem = document.createElement("li");
+                    listItem.innerHTML = `<strong>From:</strong> ${tx.sender} <br>
+                                          <strong>To:</strong> ${tx.receiver} <br>
+                                          <strong>Amount:</strong> ${tx.amount} <br>
+                                          <strong>Timestamp:</strong> ${tx.timestamp.toDate().toLocaleString()}`;
+                    unverifiedList.appendChild(listItem);
+                });
+                // Show the Unverified Transactions section
+                unverifiedTransactionsSection.classList.remove("hidden");
+            }
+        }
+
+        // Listen to Unverified Transactions in Real-Time
+        function listenToUnverifiedTransactions(uid) {
+            const q = query(collection(db, "transactions"), where("verified", "==", false));
+
+            onSnapshot(q, (querySnapshot) => {
+                fetchUnverifiedTransactions(uid);
+            });
+        }
+
+        // Verify Transactions and Reward Miner
+        verifyButton.addEventListener("click", async () => {
+            const confirmation = confirm("Are you sure you want to verify all unverified transactions and earn 10 coins?");
+            if (!confirmation) return;
+
+            const q = query(collection(db, "transactions"), where("verified", "==", false));
+
+            const querySnapshot = await getDocs(q);
+
+            let batch = db.batch();
+            let unverifiedTxs = [];
+
+            querySnapshot.forEach((docSnap) => {
+                const tx = docSnap.data();
+                if (tx.sender !== currentUser.uid && tx.receiver !== currentUser.uid) {
+                    unverifiedTxs.push({ id: docSnap.id, ...tx });
+                    const txRef = doc(db, "transactions", docSnap.id);
+                    batch.update(txRef, { verified: true });
+                }
+            });
+
+            if (unverifiedTxs.length === 0) {
+                alert("No unverified transactions available.");
+                return;
+            }
+
+            try {
+                // Commit the batch update
+                await batch.commit();
+
+                // Reward the miner
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const userDoc = await getDoc(userDocRef);
+                let currentBalance = 0;
+                if (userDoc.exists()) {
+                    currentBalance = userDoc.data().balance;
+                }
+                const newBalance = currentBalance + 10;
+                await updateDoc(userDocRef, { balance: newBalance });
+
+                alert("Successfully verified transactions and earned 10 coins!");
+
+                // Refresh UI
+                await fetchWalletInfo(currentUser.uid);
+                await fetchUserActivity(currentUser.uid);
+                await fetchUnverifiedTransactions(currentUser.uid);
+            } catch (error) {
+                console.error("Verification Error:", error);
+                alert("Verification failed: " + error.message);
+            }
+        });
+
+        // Send Coins to Another User
+        sendButton.addEventListener("click", async () => {
+            const recipientId = document.getElementById("recipient-id").value.trim();
+            const amount = parseInt(document.getElementById("send-amount").value, 10);
+
+            if (!recipientId || isNaN(amount)) {
+                alert("Please enter a valid recipient ID and amount.");
+                return;
+            }
+
+            if (amount <= 0) {
+                alert("Amount must be greater than zero.");
+                return;
+            }
+
+            try {
+                const senderDocRef = doc(db, "users", currentUser.uid);
+                const senderDoc = await getDoc(senderDocRef);
+                if (!senderDoc.exists()) {
+                    alert("Sender not found.");
+                    return;
+                }
+
+                const senderBalance = senderDoc.data().balance;
+                if (senderBalance < amount) {
+                    alert("Insufficient balance.");
+                    return;
+                }
+
+                const recipientDocRef = doc(db, "users", recipientId);
+                const recipientDoc = await getDoc(recipientDocRef);
+                if (!recipientDoc.exists()) {
+                    alert("Recipient not found.");
+                    return;
+                }
+
+                // Update balances using a batch to ensure atomicity
+                const batch = db.batch();
+                batch.update(senderDocRef, { balance: senderBalance - amount });
+                batch.update(recipientDocRef, { balance: recipientDoc.data().balance + amount });
+
+                // Add transaction record
+                const transactionsCollection = collection(db, "transactions");
+                const transactionData = {
+                    sender: currentUser.uid,
+                    receiver: recipientId,
+                    amount: amount,
+                    timestamp: serverTimestamp(),
+                    verified: true // Assuming transactions made by users are auto-verified
+                };
+                const newTxRef = doc(transactionsCollection); // Auto-generated ID
+                batch.set(newTxRef, transactionData);
+
+                // Commit the batch
+                await batch.commit();
+
+                alert(`Successfully sent ${amount} coins to ${recipientId}.`);
+
+                // Refresh UI
+                await fetchWalletInfo(currentUser.uid);
+                await fetchUserActivity(currentUser.uid);
+            } catch (error) {
+                console.error("Send Coins Error:", error);
+                alert("Failed to send coins: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
