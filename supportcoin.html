@@ -105,18 +105,16 @@
         <!-- Other links -->
         <a href="#" id="mining-link">Mining</a>
         <a href="#" id="verify-link">Transaction Verification</a>
-     <div id="coin-widget">
-        <h2>Coin Supply Overview</h2>
-        <p><strong>Total Supply:</strong> <span id="total-supply" class="value">Loading...</span></p>
-        <p><strong>Current Circulation:</strong> <span id="current-circulation" class="value">Loading...</span></p>
-        <p><strong>Remaining Supply:</strong> <span id="remaining-supply" class="value">Loading...</span></p>
-    </div>
+  
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
-
-        // Firebase configuration
+   window.updateSummary = function updateSummary() {
+        document.getElementById("total-coins").innerText = totalCoins;
+        document.getElementById("current-circulation").innerText = currentCirculation;
+        document.getElementById("remaining-supply").innerText = totalCoins - currentCirculation;
+    };        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
             authDomain: "wallet-18aba.firebaseapp.com",
