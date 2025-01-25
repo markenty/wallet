@@ -69,17 +69,17 @@
         <a href="#" onclick="switchPage('verify.html')" class="hidden" id="verify-link">Transaction Verification</a>
     </div>
 
+    <!-- Main Content -->
+    <div id="content">
+        <iframe id="content-frame" src="index.html"></iframe>
+    </div>
+
     <!-- Login Section (Initially visible if not logged in) -->
     <div id="login-section" class="hidden">
         <h2>Please log in to access your account</h2>
         <input type="email" id="login-email" placeholder="Email" required><br>
         <input type="password" id="login-password" placeholder="Password" required><br>
         <button id="login-button">Log In</button>
-    </div>
-
-    <!-- Main Content -->
-    <div id="content">
-        <iframe id="content-frame" src="index.html"></iframe>
     </div>
 
     <script type="module">
