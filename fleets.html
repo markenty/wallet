@@ -55,10 +55,11 @@ a:active {
       justify-content: center;
     }
     .fleet-item img, .fleet-item video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    width: 100%; /* Make sure the element takes the full width of the container */
+    height: 100%; /* Optional: Adjust if you want a specific height */
+    object-fit: contain; /* Ensures the media fits within the container, no cropping */
+    object-position: center; /* Centers the media within the container */
+}
     .delete-btn {
       position: absolute;
       top: 10px;
