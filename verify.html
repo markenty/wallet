@@ -420,7 +420,37 @@
                 alert("Verification failed: " + error.message);
             }
         });
+async function loadTransactionLog() {
+    const transactionLogContainer = document.getElementById("transactions-log");
+    transactionLogContainer.innerHTML = "";
 
-    </script>
+    try {
+        const transactionsSnapshot = await getDocs(collection(db, "transactions"));
+        transactionsSnapshot.forEach(doc => {
+            const transaction = doc.data();
+            if (transaction.sender === currentUser.id || transaction.receiver === currentUser.id) {
+                transactionLogContainer.innerHTML += `<p>${transaction.timestamp}: Sent ${transaction.amount} coins to ${transaction.receiver}</p>`;
+            }
+        });
+    } catch (error) {
+        console.error("Error loading transactions:", error);
+        transactionLogContainer.innerHTML = "<p>Failed to load transactions.</p>";
+    }
+}
+ window.displayTransactions = function displayTransactions() {
+            const transactionContainer = document.getElementById("transactions-log");
+            transactionContainer.innerHTML = "<h3>Transactions</h3>";
+            if (transactions.length === 0) {
+                transactionContainer.innerHTML += "<p>No transactions available.</p>";
+                return;
+            }
+            transactions.forEach((tx, index) => {
+                transactionContainer.innerHTML += `
+                    <p>
+                        ${index + 1}. <strong>${tx.sender}</strong> sent <strong>${tx.amount}</strong> coins 
+                        to <strong>${tx.receiver}</strong> at <em>${tx.timestamp}</em>
+                    </p>`;
+            });
+        };            </script>
 </body>
 </html>
