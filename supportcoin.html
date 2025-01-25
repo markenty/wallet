@@ -100,7 +100,7 @@
     <!-- Sliding Menu -->
     <div id="sliding-menu">
         <div id="close-button">&#10005;</div>
-         <a href="#" id="index-link">Mining</a>
+         <a href="#" id="index-link">Wallet</a>
         <a href="#" id="mining-link">Mining</a>
         <a href="#" id="verify-link">Transaction Verification</a>
     </div>
@@ -113,6 +113,7 @@
     <script type="module">
         // Function to toggle the sliding menu
         function toggleMenu() {
+            const menu = document.getElementById("index-menu");
             const menu = document.getElementById("sliding-menu");
             const menuButton = document.getElementById("menu-button");
 
