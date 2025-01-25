@@ -105,6 +105,72 @@
         <!-- Other links -->
         <a href="#" id="mining-link">Mining</a>
         <a href="#" id="verify-link">Transaction Verification</a>
+   <h1>Coin Management System</h1>
+    
+    <!-- Supply Activity Status -->
+    <div id="supply-activity-status">Waiting for supply updates...</div>
+
+    <!-- Your other page content goes here -->
+    <!-- Example: wrapper content -->
+    <div>
+        <h2>Supply Overview</h2>
+        <p><strong>Total Supply:</strong> <span id="total-supply">Loading...</span></p>
+        <p><strong>Current Circulation:</strong> <span id="current-circulation">Loading...</span></p>
+        <p><strong>Remaining Supply:</strong> <span id="remaining-supply">Loading...</span></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const supplyStatusElement = document.getElementById("supply-activity-status");
+        const totalSupplyElement = document.getElementById("total-supply");
+        const currentCirculationElement = document.getElementById("current-circulation");
+        const remainingSupplyElement = document.getElementById("remaining-supply");
+
+        // Listen for real-time updates on the total supply and current circulation from Firestore
+        const supplyDocRef = doc(db, "config", "totalSupply");
+
+        // Real-time listener for the supply document
+        onSnapshot(supplyDocRef, (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                const totalSupply = data.totalSupply;
+                const currentCirculation = data.currentCirculation;
+                const remainingSupply = totalSupply - currentCirculation;
+
+                // Update the display values in the wrapper page
+                totalSupplyElement.innerText = totalSupply;
+                currentCirculationElement.innerText = currentCirculation;
+                remainingSupplyElement.innerText = remainingSupply;
+
+                // Update the supply activity status
+                supplyStatusElement.innerText = `Supply Updated: Total Supply = ${totalSupply}, Circulation = ${currentCirculation}`;
+            } else {
+                supplyStatusElement.innerText = "Supply data not found.";
+            }
+        });
+
+        // Function to trigger supply activity (this would be called when distributing or updating supply)
+        function updateSupplyActivity() {
+            // For demonstration purposes, this function could be called after certain actions (distribute coins, perform transactions, etc.)
+            console.log("Supply activity triggered, real-time updates are working.");
+        }
+    </script>
     </div>
 
     <!-- Main Content (Iframe) -->
