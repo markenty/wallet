@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+    <title>User Wallet System</title>
  <style>
-    /* General Styling */   /* Responsive Design */
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }   /* Adjust input fields to be more accessible on smaller screens */
-          body {
+    /* General Styling */
+    body {
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 20px;
@@ -52,7 +48,7 @@
 
     /* Input Fields */
     input {
-        width: 98%;
+        width: 100%;
         padding: 10px;
         margin: 10px 0;
         border: 1px solid #333333; /* Subtle border */
@@ -190,6 +186,7 @@
 
 </head>
 <body>
+    <h1>User Wallet System</h1>
 
     <div id="login-div">
         <h2>Login</h2>
@@ -240,17 +237,7 @@
 import { getFirestore, doc, getDoc, updateDoc, addDoc, collection, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 
-// Check session on page load
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        // User is logged in, display main content
-        initializeMainContent(user);
-    } else {
-        // User is logged out, show login form
-        showLoginForm();
-    }
-});      
-        
+
         const firebaseConfig = {
             apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
             authDomain: "wallet-18aba.firebaseapp.com",
