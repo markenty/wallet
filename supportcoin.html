@@ -11,9 +11,10 @@
             background-color: #121212;
             color: #ffffff;
             position: relative;
+            overflow: hidden; /* Prevent scrolling */
         }
 
-        /* Floating Menu Button */
+        /* Floating Menu Button (Persistent on top) */
         #menu-button {
             position: fixed;
             bottom: 20px;
@@ -29,7 +30,7 @@
             align-items: center;
             cursor: pointer;
             box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
-            z-index: 1001;
+            z-index: 1001; /* Ensure button is always on top */
         }
 
         /* Sliding Menu */
@@ -43,7 +44,7 @@
             transform: translateX(100%); /* Start off-screen */
             transition: transform 0.3s ease-in-out;
             padding-top: 20px;
-            z-index: 1000; /* Ensure it overlays on top of the content */
+            z-index: 1000; /* Ensure it overlays on top of the iframe */
         }
 
         #sliding-menu a {
@@ -63,7 +64,7 @@
         #close-button {
             position: absolute;
             top: 20px;
-            right: 2px;
+            left: 20px;
             font-size: 30px;
             color: #fff;
             cursor: pointer;
@@ -73,13 +74,17 @@
         #content {
             width: 100%;
             height: 100vh;
-            border: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding-bottom: 100px; /* To prevent content being covered by the menu */
         }
 
         iframe {
             width: 100%;
-            height: 90vh;
+            height: 100%;
             border: none;
+            z-index: 999; /* Ensure the iframe is underneath the menu and button */
         }
 
         /* Hidden class */
@@ -91,12 +96,12 @@
 <body>
     <!-- Floating Menu Button -->
     <div id="menu-button">&#9776;</div>
-    
-   <!-- Sliding Menu -->
+
+    <!-- Sliding Menu -->
     <div id="sliding-menu">
         <div id="close-button">&#10005;</div>
-        <a href="minebutton.html" onclick="switchPage('minebutton.html')">Mining</a>
-        <a href="verify.html" onclick="switchPage('verify.html')">Transaction Verification</a>
+        <a href="#" onclick="switchPage('minebutton.html')">Mining</a>
+        <a href="#" onclick="switchPage('verify.html')">Transaction Verification</a>
     </div>
 
     <!-- Main Content (Iframe) -->
@@ -122,7 +127,7 @@
 
         // Function to switch iframe content based on menu selection
         function switchPage(page) {
-            document.getElementById('content-frame').src = page;
+            document.getElementById('content-frame').src = page;  // Update the iframe's src
             toggleMenu(); // Close the menu after page switch
         }
 
