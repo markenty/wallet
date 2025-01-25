@@ -69,6 +69,14 @@
         <a href="#" onclick="switchPage('verify.html')" class="hidden" id="verify-link">Transaction Verification</a>
     </div>
 
+    <!-- Login Section (Initially visible if not logged in) -->
+    <div id="login-section" class="hidden">
+        <h2>Please log in to access your account</h2>
+        <input type="email" id="login-email" placeholder="Email" required><br>
+        <input type="password" id="login-password" placeholder="Password" required><br>
+        <button id="login-button">Log In</button>
+    </div>
+
     <!-- Main Content -->
     <div id="content">
         <iframe id="content-frame" src="index.html"></iframe>
@@ -78,7 +86,6 @@
         // Firebase configuration
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
@@ -91,7 +98,6 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
 
         // Check if the user is logged in
         onAuthStateChanged(auth, user => {
@@ -105,15 +111,23 @@
         });
 
         // Function to handle login process (using Firebase authentication)
-        function login(email, password) {
-            signInWithEmailAndPassword(auth, email, password)
-                .then(() => {
-                    displayLoggedInState();
-                })
-                .catch(error => {
-                    alert("Login failed: " + error.message);
-                });
-        }
+        document.getElementById("login-button").addEventListener("click", function() {
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+
+            if (email && password) {
+                // Firebase Authentication login
+                signInWithEmailAndPassword(auth, email, password)
+                    .then(() => {
+                        displayLoggedInState();
+                    })
+                    .catch(error => {
+                        alert("Login failed: " + error.message);
+                    });
+            } else {
+                alert("Please enter both email and password.");
+            }
+        });
 
         // Function to display the logged-in state
         function displayLoggedInState() {
@@ -148,9 +162,6 @@
                 alert("Logout failed: " + error.message);
             });
         }
-
-        // Initialize login behavior from `index.html` login form (if applicable)
-        // You can call the login function using `login(email, password)` as needed
 
     </script>
 </body>
