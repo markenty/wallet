@@ -10,28 +10,65 @@
             margin: 0;
             background-color: #121212;
             color: #ffffff;
+            position: relative;
         }
 
-        /* Navigation Menu */
-        #navbar {
+        /* Floating Menu Button */
+        #menu-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #00d1b2;
+            color: white;
+            font-size: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Sliding Menu */
+        #sliding-menu {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 250px;
+            height: 100%;
             background-color: #1e1e1e;
-            padding: 10px;
-            text-align: center;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            padding-top: 20px;
+            z-index: 1000;
         }
 
-        #navbar a {
+        #sliding-menu a {
             color: #00d1b2;
             text-decoration: none;
-            margin: 0 15px;
             font-size: 18px;
             font-weight: bold;
+            display: block;
+            padding: 15px 20px;
+            margin: 10px 0;
         }
 
-        #navbar a:hover {
-            text-decoration: underline;
+        #sliding-menu a:hover {
+            background-color: #333;
         }
 
-        /* Main content */
+        #close-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 30px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        /* Main content (Iframe) */
         #content {
             width: 100%;
             height: 100vh;
@@ -44,125 +81,48 @@
             border: none;
         }
 
-        /* Hidden elements */
+        /* Hidden class */
         .hidden {
             display: none;
-        }
-
-        /* Login section */
-        #login-section {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        #login-section input, #login-section button {
-            margin: 5px;
-            padding: 10px;
         }
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <div id="navbar">
-        <a href="#" onclick="switchPage('index.html')" class="hidden" id="wallet-link">User Wallet</a>
-        <a href="#" onclick="switchPage('minebutton.html')" class="hidden" id="mining-link">Mining</a>
-        <a href="#" onclick="switchPage('verify.html')" class="hidden" id="verify-link">Transaction Verification</a>
+    <!-- Floating Menu Button -->
+    <div id="menu-button" onclick="toggleMenu()">&#9776;</div>
+
+    <!-- Sliding Menu -->
+    <div id="sliding-menu">
+        <div id="close-button" onclick="toggleMenu()">&#10005;</div>
+        <a href="#" onclick="switchPage('minebutton.html')">Mining</a>
+        <a href="#" onclick="switchPage('verify.html')">Transaction Verification</a>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main Content (Iframe) -->
     <div id="content">
         <iframe id="content-frame" src="index.html"></iframe>
     </div>
 
-    <!-- Login Section (Initially visible if not logged in) -->
-    <div id="login-section">
-        <h2>Please log in to access your account</h2>
-        <input type="email" id="login-email" placeholder="Email" required><br>
-        <input type="password" id="login-password" placeholder="Password" required><br>
-        <button id="login-button">Log In</button>
-    </div>
-
     <script type="module">
-        // Firebase configuration
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        // Function to toggle the sliding menu
+        function toggleMenu() {
+            const menu = document.getElementById("sliding-menu");
+            const menuButton = document.getElementById("menu-button");
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
-            authDomain: "wallet-18aba.firebaseapp.com",
-            projectId: "wallet-18aba",
-            storageBucket: "wallet-18aba.appspot.com",
-            messagingSenderId: "926434300165",
-            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        // Check if the user is logged in
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                // User is logged in
-                displayLoggedInState();
+            if (menu.style.transform === "translateX(100%)") {
+                menu.style.transform = "translateX(0)";
+                menuButton.style.transform = "rotate(180deg)";  // Rotate the button
             } else {
-                // User is not logged in
-                displayLoggedOutState();
+                menu.style.transform = "translateX(100%)";
+                menuButton.style.transform = "rotate(0deg)";
             }
-        });
-
-        // Function to handle login process (using Firebase authentication)
-        document.getElementById("login-button").addEventListener("click", function() {
-            const email = document.getElementById("login-email").value;
-            const password = document.getElementById("login-password").value;
-
-            if (email && password) {
-                // Firebase Authentication login
-                signInWithEmailAndPassword(auth, email, password)
-                    .then(() => {
-                        displayLoggedInState();
-                    })
-                    .catch(error => {
-                        alert("Login failed: " + error.message);
-                    });
-            } else {
-                alert("Please enter both email and password.");
-            }
-        });
-
-        // Function to display the logged-in state
-        function displayLoggedInState() {
-            // Hide login section
-            document.getElementById('login-section').classList.add('hidden');
-            // Show account-related links
-            document.getElementById('wallet-link').classList.remove('hidden');
-            document.getElementById('mining-link').classList.remove('hidden');
-            document.getElementById('verify-link').classList.remove('hidden');
         }
 
-        // Function to display the logged-out state
-        function displayLoggedOutState() {
-            // Show login section
-            document.getElementById('login-section').classList.remove('hidden');
-            // Hide account-related links
-            document.getElementById('wallet-link').classList.add('hidden');
-            document.getElementById('mining-link').classList.add('hidden');
-            document.getElementById('verify-link').classList.add('hidden');
-        }
-
-        // Function to switch iframe source based on selected menu item
+        // Function to switch iframe content based on menu selection
         function switchPage(page) {
             document.getElementById('content-frame').src = page;
+            toggleMenu(); // Close the menu after page switch
         }
-
-        // Function to logout user
-        function logout() {
-            signOut(auth).then(() => {
-                displayLoggedOutState();
-            }).catch((error) => {
-                alert("Logout failed: " + error.message);
-            });
-        }
-
     </script>
 </body>
 </html>
