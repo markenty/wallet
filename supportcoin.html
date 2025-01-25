@@ -115,11 +115,14 @@
             const menu = document.getElementById("sliding-menu");
             const menuButton = document.getElementById("menu-button");
 
+            console.log("Toggling menu...");
             // Check if the menu is already visible, if yes, slide it out, if not, slide it in
             if (menu.style.transform === "translateX(100%)") {
+                console.log("Opening menu...");
                 menu.style.transform = "translateX(0)";
                 menuButton.style.transform = "rotate(180deg)";  // Rotate the button when open
             } else {
+                console.log("Closing menu...");
                 menu.style.transform = "translateX(100%)";
                 menuButton.style.transform = "rotate(0deg)";  // Reset the button rotation
             }
@@ -127,6 +130,7 @@
 
         // Function to switch iframe content based on menu selection
         function switchPage(page) {
+            console.log("Switching to page:", page); // Debugging log
             document.getElementById('content-frame').src = page;  // Update the iframe's src
             toggleMenu(); // Close the menu after page switch
         }
