@@ -100,6 +100,7 @@
     <!-- Sliding Menu -->
     <div id="sliding-menu">
         <div id="close-button">&#10005;</div>
+         <a href="#" id="index-link">Mining</a>
         <a href="#" id="mining-link">Mining</a>
         <a href="#" id="verify-link">Transaction Verification</a>
     </div>
@@ -136,10 +137,14 @@
         }
 
         // Attach event listeners after DOM is ready
+         document.getElementById("index-button").addEventListener("click", toggleMenu);
         document.getElementById("menu-button").addEventListener("click", toggleMenu);
         document.getElementById("close-button").addEventListener("click", toggleMenu);
 
         // Add event listeners for links inside the sliding menu
+             document.getElementById("index-link").addEventListener("click", function() {
+            switchPage('index.html');
+        });
         document.getElementById("mining-link").addEventListener("click", function() {
             switchPage('minebutton.html');
         });
