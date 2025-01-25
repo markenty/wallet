@@ -105,7 +105,7 @@
         <!-- Other links -->
         <a href="#" id="mining-link">Mining</a>
         <a href="#" id="verify-link">Transaction Verification</a>
-    <div id="coin-widget">
+     <div id="coin-widget">
         <h2>Coin Supply Overview</h2>
         <p><strong>Total Supply:</strong> <span id="total-supply" class="value">Loading...</span></p>
         <p><strong>Current Circulation:</strong> <span id="current-circulation" class="value">Loading...</span></p>
@@ -135,26 +135,31 @@
         const currentCirculationElement = document.getElementById("current-circulation");
         const remainingSupplyElement = document.getElementById("remaining-supply");
 
-        // Firestore reference for the config document containing total supply and circulation
-        const supplyDocRef = doc(db, "totalSupply", "totalSupply");
-const supplyDocRef = doc(db, "currentCirculation", "total");    
-        // Real-time listener to fetch and update total supply, circulation, and remaining supply
-        onSnapshot(supplyDocRef, (docSnapshot) => {
-            if (docSnapshot.exists()) {
-                const data = docSnapshot.data();
-                const totalSupply = data.totalSupply; // Static total supply
-                const currentCirculation = data.currentCirculation; // Dynamic circulation
-                const remainingSupply = totalSupply - currentCirculation;
+        // Firestore references for the totalSupply and currentCirculation documents
+        const totalSupplyDocRef = doc(db, "totalSupply", "totalSupply");
+        const currentCirculationDocRef = doc(db, "currentCirculation", "total");
 
-                // Update the UI with the latest values
+        // Real-time listener for totalSupply document
+        onSnapshot(totalSupplyDocRef, (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const totalSupply = docSnapshot.data().totalSupply;
                 totalSupplyElement.innerText = totalSupply;
-                currentCirculationElement.innerText = currentCirculation;
-                remainingSupplyElement.innerText = remainingSupply;
+
+                // Fetch currentCirculation and calculate remainingSupply
+                onSnapshot(currentCirculationDocRef, (circulationSnapshot) => {
+                    if (circulationSnapshot.exists()) {
+                        const currentCirculation = circulationSnapshot.data().total;
+                        const remainingSupply = totalSupply - currentCirculation;
+
+                        // Update the current circulation and remaining supply values
+                        currentCirculationElement.innerText = currentCirculation;
+                        remainingSupplyElement.innerText = remainingSupply;
+                    } else {
+                        console.error("Current circulation data not found in Firestore.");
+                    }
+                });
             } else {
-                console.error("Supply data not found in Firestore.");
-                totalSupplyElement.innerText = "Error";
-                currentCirculationElement.innerText = "Error";
-                remainingSupplyElement.innerText = "Error";
+                console.error("Total supply data not found in Firestore.");
             }
         });
     </script>
