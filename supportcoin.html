@@ -136,8 +136,8 @@
         const remainingSupplyElement = document.getElementById("remaining-supply");
 
         // Firestore reference for the config document containing total supply and circulation
-        const supplyDocRef = doc(db, "config", "totalSupply");
-
+        const supplyDocRef = doc(db, "totalSupply", "totalSupply");
+const supplyDocRef = doc(db, "currentCirculation", "total");    
         // Real-time listener to fetch and update total supply, circulation, and remaining supply
         onSnapshot(supplyDocRef, (docSnapshot) => {
             if (docSnapshot.exists()) {
