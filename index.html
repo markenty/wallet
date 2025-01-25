@@ -7,7 +7,8 @@
     <title>supportCoin.beta</title>
  <style>
     /* General Styling */
-    body {
+    body { touch-action: manipulation; /* Prevents pinch-to-zoom */
+  overflow: hidden; /* Avoids scroll-based zooming */
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 20px;
@@ -59,7 +60,9 @@
 
     input::placeholder {
         color: #888888; /* Subtle placeholder text */
-    }
+    }input, textarea {
+  font-size: 16px; /* Prevents iOS zoom */
+}
 
     /* Buttons */
     button {
