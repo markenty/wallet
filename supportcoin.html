@@ -130,7 +130,9 @@
             }
         }
 
-        // Function to switch iframe content based on menu selection
+      
+
+       // Function to switch iframe content based on menu selection
         function switchPage(page) {
             console.log("Switching to page:", page); // Debugging log
             document.getElementById('content-frame').src = page;  // Update the iframe's src
@@ -138,19 +140,18 @@
         }
 
         // Attach event listeners after DOM is ready
-         document.getElementById("index-button").addEventListener("click", toggleMenu);
         document.getElementById("menu-button").addEventListener("click", toggleMenu);
         document.getElementById("close-button").addEventListener("click", toggleMenu);
 
         // Add event listeners for links inside the sliding menu
-             document.getElementById("index-link").addEventListener("click", function() {
-            switchPage('index.html');
+        document.getElementById("wallet-link").addEventListener("click", function() {
+            switchPage('index.html'); // Go back to Wallet (index.html)
         });
         document.getElementById("mining-link").addEventListener("click", function() {
-            switchPage('minebutton.html');
+            switchPage('minebutton.html'); // Go to Mining
         });
         document.getElementById("verify-link").addEventListener("click", function() {
-            switchPage('verify.html');
+            switchPage('verify.html'); // Go to Transaction Verification
         });
     </script>
 </body>
