@@ -43,14 +43,30 @@
             height: 90vh;
             border: none;
         }
+
+        /* Hidden elements */
+        .hidden {
+            display: none;
+        }
+
+        /* Login section */
+        #login-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #login-section input, #login-section button {
+            margin: 5px;
+            padding: 10px;
+        }
     </style>
 </head>
 <body>
     <!-- Navigation Bar -->
     <div id="navbar">
-        <a href="#" onclick="switchPage('index.html')">User Wallet</a>
-        <a href="#" onclick="switchPage('minebutton.html')">Mining</a>
-        <a href="#" onclick="switchPage('verify.html')">Transaction Verification</a>
+        <a href="#" onclick="switchPage('index.html')" class="hidden" id="wallet-link">User Wallet</a>
+        <a href="#" onclick="switchPage('minebutton.html')" class="hidden" id="mining-link">Mining</a>
+        <a href="#" onclick="switchPage('verify.html')" class="hidden" id="verify-link">Transaction Verification</a>
     </div>
 
     <!-- Main Content -->
@@ -58,11 +74,84 @@
         <iframe id="content-frame" src="index.html"></iframe>
     </div>
 
-    <script>
+    <script type="module">
+        // Firebase configuration
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Check if the user is logged in
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // User is logged in
+                displayLoggedInState();
+            } else {
+                // User is not logged in
+                displayLoggedOutState();
+            }
+        });
+
+        // Function to handle login process (using Firebase authentication)
+        function login(email, password) {
+            signInWithEmailAndPassword(auth, email, password)
+                .then(() => {
+                    displayLoggedInState();
+                })
+                .catch(error => {
+                    alert("Login failed: " + error.message);
+                });
+        }
+
+        // Function to display the logged-in state
+        function displayLoggedInState() {
+            // Hide login section
+            document.getElementById('login-section').classList.add('hidden');
+            // Show account-related links
+            document.getElementById('wallet-link').classList.remove('hidden');
+            document.getElementById('mining-link').classList.remove('hidden');
+            document.getElementById('verify-link').classList.remove('hidden');
+        }
+
+        // Function to display the logged-out state
+        function displayLoggedOutState() {
+            // Show login section
+            document.getElementById('login-section').classList.remove('hidden');
+            // Hide account-related links
+            document.getElementById('wallet-link').classList.add('hidden');
+            document.getElementById('mining-link').classList.add('hidden');
+            document.getElementById('verify-link').classList.add('hidden');
+        }
+
         // Function to switch iframe source based on selected menu item
         function switchPage(page) {
             document.getElementById('content-frame').src = page;
         }
+
+        // Function to logout user
+        function logout() {
+            signOut(auth).then(() => {
+                displayLoggedOutState();
+            }).catch((error) => {
+                alert("Logout failed: " + error.message);
+            });
+        }
+
+        // Initialize login behavior from `index.html` login form (if applicable)
+        // You can call the login function using `login(email, password)` as needed
+
     </script>
 </body>
 </html>
