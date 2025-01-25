@@ -100,8 +100,8 @@
     <!-- Sliding Menu -->
     <div id="sliding-menu">
         <div id="close-button">&#10005;</div>
-        <a href="#" onclick="switchPage('minebutton.html')">Mining</a>
-        <a href="#" onclick="switchPage('verify.html')">Transaction Verification</a>
+        <a href="#" id="mining-link">Mining</a>
+        <a href="#" id="verify-link">Transaction Verification</a>
     </div>
 
     <!-- Main Content (Iframe) -->
@@ -138,6 +138,14 @@
         // Attach event listeners after DOM is ready
         document.getElementById("menu-button").addEventListener("click", toggleMenu);
         document.getElementById("close-button").addEventListener("click", toggleMenu);
+
+        // Add event listeners for links inside the sliding menu
+        document.getElementById("mining-link").addEventListener("click", function() {
+            switchPage('minebutton.html');
+        });
+        document.getElementById("verify-link").addEventListener("click", function() {
+            switchPage('verify.html');
+        });
     </script>
 </body>
 </html>
