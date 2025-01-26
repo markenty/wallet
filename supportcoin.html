@@ -94,6 +94,22 @@
         .hidden {
             display: none;
         }
+         /* Hidden payment div */
+        #payment-div {
+            display: none;
+            width: 100%;
+            height: 90vh;
+            background-color: rgba(0, 0, 0, 0.8); /* Optional: transparent background */
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1000; /* Ensure it's on top of the other content */
+        }
+
+        #payment-div iframe {
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -172,8 +188,10 @@
     <div id="content">
         <iframe id="content-frame" src="index.html"></iframe>
     </div>
-
-    <script type="module">
+ <!-- Hidden Payment Div -->
+    <div id="payment-div">
+        <iframe id="payment-iframe" src="payment.html"></iframe> <!-- Preload the page -->
+    </div>    <script type="module">
         // Function to toggle the sliding menu
         function toggleMenu() {
             
