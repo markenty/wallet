@@ -161,9 +161,7 @@
     </style>
 </head>
 <body>
-   <h2><i>supportCoin</i></h2>
-
-    <!-- Login Section -->
+   <!-- Login Section -->
     <div id="login-div">
         <h2>Login</h2>
         <input type="email" id="email" placeholder="Email" required><br>
@@ -177,23 +175,45 @@
 
     <!-- Wallet Section (Hidden until logged in) -->
     <div id="wallet-div">
-        <h2><i>supportCoin</i>/Use Wallet/</h2>
-        <p><strong>Balance:</strong> <span id="balance">0</span> coins</p></h1>
-         <p><strong>Email:</strong> <span id="user-email">N/A</span></p>
-        <p><strong>User ID:</strong> <span id="user-id">N/A</span></p>
+   <h2 style="display: flex; justify-content: space-between; align-items: center;">
+    <i>supportCoin</i>/Use Wallet/
+    <a href="payments.html" style="font-size: 0.8em; padding: 5px 10px; text-decoration: none; background-color: #007BFF; color: white; border: none; border-radius: 4px; display: inline-block; text-align: center;"  target="inner">Pay</a>
+</h2>
+<div style="width: 100%; overflow: hidden; white-space: nowrap;">
+    <div style="display: inline-block; animation: scroll-left 40s linear infinite;">
+        <span><strong>Balance:</strong> <span id="balance">0</span> coins</span>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span><strong>Remaining Supply:</strong> <span id="remaining-supply">0</span> coins</span>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span><strong>Email:</strong> <span id="user-email">N/A</span></span>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span><strong>User ID:</strong> <span id="user-id">N/A</span></span>
+    </div>
+</div>
+
+<style>
+    @keyframes scroll-left {
+        from {
+            transform: translateX(100%);
+        }
+        to {
+            transform: translateX(-100%);
+        }
+    }
+</style>
         
         
-       <iframe src="sendwidget.html" style="border:0px #ffffff none;" object-fit: contain;  object-position: center; name="myiFrame" scrolling="yes" frameborder="" marginheight="0px" marginwidth="0px" height="205" width="100%" allowfullscreen></iframe>
+       <iframe src="https://markenty.github.io/wallet/fleets" style="border-radius: 2% 2% 2% 2%; border:0px #ffffff none;" object-fit: contain;  object-position: center; name="inner" scrolling="yes" frameborder="" marginheight="0px" marginwidth="0px" height="900" width="100%" allowfullscreen></iframe>
         <div style="visibility: hidden; display:none;"><h3>Send Coins</h3>
         <label for="recipient">Recipient:</label>
         <input type="text" id="recipient" placeholder="Recipient User ID"><br>
         <label for="amount">Amount:</label>
         <input type="number" id="amount" placeholder="Amount"><br>
         <button id="send-btn">Send</button></div>
-        <h3>Transaction Log</h3>
-        <div id="transactions-log"></div> <h3>Remaining Supply</h3>
-        <p><strong>Remaining Supply:</strong> <span id="remaining-supply">0</span> coins</p>
-        <button id="logout-btn">Logout</button>
+        <div id="transactions-log" style="visibility: hidden; display:none;"<h3>Transaction Log</h3>
+            
+           
+        <button id="logout-btn">Logout</button></div> 
     </div>
 
     <!-- Modals -->
@@ -237,26 +257,27 @@
 
         let currentUser = null;
 
-        // Persist user session across pages
-        setPersistence(auth, browserLocalPersistence).then(() => {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUser = user;
-                    document.getElementById("login-div").style.display = "none";
-                    document.getElementById("wallet-div").style.display = "block";
-                    document.getElementById("user-email").innerText = user.email;
-                    document.getElementById("user-id").innerText = user.uid;
-                    document.getElementById("balance").innerText = await getUserBalance(user.uid);
-                    loadTransactionLog(user.uid);
-                    updateRemainingSupply();
-                } else {
-                    document.getElementById("login-div").style.display = "block";
-                    document.getElementById("wallet-div").style.display = "none";
-                }
-            });
-        }).catch((error) => {
-            console.error("Error setting persistence: ", error);
-        });
+       setPersistence(auth, browserLocalPersistence).then(() => {
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            // User is logged in
+            currentUser = user;
+            document.getElementById("login-div").style.display = "none";
+            document.getElementById("wallet-div").style.display = "block";
+            document.getElementById("user-email").innerText = user.email;
+            document.getElementById("user-id").innerText = user.uid;
+            document.getElementById("balance").innerText = await getUserBalance(user.uid);
+            loadTransactionLog(user.uid);
+            updateRemainingSupply();
+        } else {
+            // No user is logged in
+            document.getElementById("login-div").style.display = "block";
+            document.getElementById("wallet-div").style.display = "none";
+        }
+    });
+}).catch((error) => {
+    console.error("Error setting persistence: ", error);
+});
 
         // Get user balance from Firestore
         async function getUserBalance(userId) {
