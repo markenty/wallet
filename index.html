@@ -2,29 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Wallet System</title>
     <style>
         /* General Styling */
         body {
-            touch-action: manipulation; /* Prevents pinch-to-zoom */
-            overflow: hidden; /* Avoids scroll-based zooming */
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0px;
-            background-color: #121212; /* Dark background */
-            color: #ffffff; /* Light text */
+            padding: 20px;
+            background-color: #121212;
+            color: #ffffff;
         }
 
-        /* Login and Wallet Containers */
+        /* Wallet Containers */
         #login-div, #wallet-div, .modal {
-            border: 1px solid #333333; /* Subtle border */
-            padding: 5px;
+            border: 1px solid #333333;
+            padding: 20px;
             margin-bottom: 20px;
-            border-radius: 10px; /* Rounded corners */
-            background-color: #1e1e1e; /* Dark background for cards */
-            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5); /* Prominent shadow */
+            border-radius: 10px;
+            background-color: #1e1e1e;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
         }
 
         /* Wallet Hidden by Default */
@@ -32,29 +29,28 @@
             display: none;
         }
 
-          /* Input Fields */
-    input {
-        width: 96%;
-        padding: 10px;        margin: 10px 0;
-        border: 1px solid #333333; /* Subtle border */
-        border-radius: 5px;
-        background-color: #292929; /* Dark input background */
-        color: #ffffff;
-    }
+        /* Input Fields */
+        input {
+            width: 98.5%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #333333;
+            border-radius: 5px;
+            background-color: #292929;
+            color: #ffffff;
+        }
 
-    input::placeholder {
-        color: #888888; /* Subtle placeholder text */
-    }input, textarea {
-  font-size: 16px; /* Prevents iOS zoom */
-}
+        input::placeholder {
+            color: #888888;
+        }
 
         /* Buttons */
         button {
             width: 100%;
             padding: 10px;
             margin-top: 10px;
-            background-color: #00d1b2; /* Teal button */
-            color: #121212; /* Dark text for contrast */
+            background-color: #00d1b2;
+            color: #121212;
             border: none;
             border-radius: 5px;
             font-size: 1rem;
@@ -64,87 +60,13 @@
         }
 
         button:hover {
-            background-color: #00bfa6; /* Slightly darker teal */
-            transform: scale(1.02); /* Slight zoom */
+            background-color: #00bfa6;
+            transform: scale(1.02);
         }
 
         button:active {
-            background-color: #009f8a; /* Even darker teal */
-            transform: scale(1); /* Reset zoom */
-        }
-
-        /* Modal Overlay */
-        .modal-overlay {
-            display: none; /* Hidden by default */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8); /* Semi-transparent black */
-            z-index: 999;
-        }
-
-        /* Modal Window */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #1e1e1e; /* Dark modal background */
-            padding: 0px;
-            border: 1px solid #333333; /* Subtle border */
-            border-radius: 10px; /* Rounded corners */
-            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.7); /* Prominent shadow */
-            color: #ffffff;
-            z-index: 1000;
-            width: 90%;
-            max-width: 400px; /* Cap modal width */
-        }
-
-        /* Modal Headings */
-        .modal h2 {
-            color: #00d1b2; /* Bright teal */
-            margin-bottom: 15px;
-        }
-
-        /* Modal Input Fields */
-        .modal input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #333333;
-            border-radius: 5px;
-            background-color: #292929; /* Dark input background */
-            color: #ffffff;
-        }
-
-        .modal input::placeholder {
-            color: #888888; /* Placeholder text color */
-        }
-
-        /* Modal Buttons */
-        .modal button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            background-color: #00d1b2; /* Teal button */
-            color: #121212; /* Dark text */
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .modal button:hover {
-            background-color: #00bfa6; /* Slightly darker teal */
-        }
-
-        .modal button:active {
-            background-color: #009f8a; /* Even darker teal */
+            background-color: #009f8a;
+            transform: scale(1);
         }
 
         /* Transaction Log Styling */
@@ -152,16 +74,16 @@
             max-height: 200px;
             overflow-y: auto;
             padding: 10px;
-            border: 1px solid #333333; /* Subtle border */
+            border: 1px solid #333333;
             border-radius: 5px;
-            background-color: #1e1e1e; /* Match wallet background */
-            box-shadow: inset 0px 2px 10px rgba(0, 0, 0, 0.5); /* Inner shadow */
+            background-color: #1e1e1e;
+            box-shadow: inset 0px 2px 10px rgba(0, 0, 0, 0.5);
         }
-
     </style>
 </head>
 <body>
-   <!-- Login Section -->
+    <h1>User Wallet System</h1>
+
     <div id="login-div">
         <h2>Login</h2>
         <input type="email" id="email" placeholder="Email" required><br>
@@ -173,127 +95,61 @@
         </p>
     </div>
 
-    <!-- Wallet Section (Hidden until logged in) -->
     <div id="wallet-div">
-
-<div style="width: 100%; overflow: hidden; white-space: nowrap;">
-    <div style="display: inline-block; animation: scroll-left 40s linear infinite;">
-        <span><strong>Balance:</strong> <span id="balance">0</span> coins</span>
-        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
-        <span><strong>Remaining Supply:</strong> <span id="remaining-supply">0</span> coins</span>
-        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
-        <span><strong>Email:</strong> <span id="user-email">N/A</span></span>
-        <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
-        <span><strong>User ID:</strong> <span id="user-id">N/A</span></span>
-    </div>
-</div>
-
-<style>
-    @keyframes scroll-left {
-        from {
-            transform: translateX(100%);
-        }
-        to {
-            transform: translateX(-100%);
-        }
-    }
-</style>
-        
-        
-       <iframe src="https://markenty.github.io/wallet/fleets" style="border-radius: 2% 2% 2% 2%; border:0px #ffffff none;" object-fit: contain;  object-position: center; name="inner" scrolling="yes" frameborder="" marginheight="0px" marginwidth="0px" height="1080" width="100%" allowfullscreen></iframe>
-        <div style="visibility: hidden; display:none;"><h3>Send Coins</h3>
+        <h2>Wallet</h2>
+        <p><strong>Email:</strong> <span id="user-email">N/A</span></p>
+        <h1><p><strong>Balance:</strong> <span id="balance">0</span> coins</p></h1>
+        <h3>Remaining Supply: <span id="remaining-supply">0</span> coins</h3>
+        <p><strong>User ID:</strong> <span id="user-id">N/A</span></p>
+        <h3>Send Coins</h3>
         <label for="recipient">Recipient:</label>
         <input type="text" id="recipient" placeholder="Recipient User ID"><br>
         <label for="amount">Amount:</label>
         <input type="number" id="amount" placeholder="Amount"><br>
-        <button id="send-btn">Send</button></div>
-        <div id="transactions-log" style="visibility: hidden; display:none;"<h3>Transaction Log</h3>
-            
-           
-        <button id="logout-btn">Logout</button></div> 
+        <button id="send-btn">Send</button>
+        <h3>Transaction Log</h3>
+        <div id="transactions-log"></div>
+        <button id="logout-btn">Logout</button>
     </div>
 
-    <!-- Modals -->
-    <div class="modal-overlay" id="modal-overlay"></div>
-
-    <!-- Forgot Password Modal -->
-    <div class="modal" id="forgot-password-modal">
-        <h2>Forgot Password</h2>
-        <input type="email" id="forgot-email" placeholder="Email" required><br>
-        <button id="send-reset-email">Send Reset Email</button>
-        <button id="close-forgot-password">Close</button>
-    </div>
-
-    <!-- Register Modal -->
-    <div class="modal" id="register-modal">
-        <h2>Register</h2>
-        <input type="email" id="register-email" placeholder="Email" required><br>
-        <input type="password" id="register-password" placeholder="Password" required><br>
-        <button id="register-btn">Register</button>
-        <button id="close-register">Close</button>
-    </div>
-
-    <!-- Firebase Scripts -->
     <script type="module">
+     // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
-        import { getAuth, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
-        // Initialize Firebase
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
             authDomain: "wallet-18aba.firebaseapp.com",
             projectId: "wallet-18aba",
-            storageBucket: "wallet-18aba.firebaseapp.com",
+            storageBucket: "wallet-18aba.appspot.com",
             messagingSenderId: "926434300165",
             appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
         };
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
         let currentUser = null;
 
-       setPersistence(auth, browserLocalPersistence).then(() => {
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            // User is logged in
-            currentUser = user;
-            document.getElementById("login-div").style.display = "none";
-            document.getElementById("wallet-div").style.display = "block";
-            document.getElementById("user-email").innerText = user.email;
-            document.getElementById("user-id").innerText = user.uid;
-            document.getElementById("balance").innerText = await getUserBalance(user.uid);
-            loadTransactionLog(user.uid);
-            updateRemainingSupply();
-        } else {
-            // No user is logged in
-            document.getElementById("login-div").style.display = "block";
-            document.getElementById("wallet-div").style.display = "none";
-        }
-    });
-}).catch((error) => {
-    console.error("Error setting persistence: ", error);
-});
+        // Initialize total supply tracking
+        const totalSupplyDocRef = doc(db, "config", "totalSupply");
 
-        // Get user balance from Firestore
-        async function getUserBalance(userId) {
-            const userRef = doc(db, "users", userId);
-            const userDoc = await getDoc(userRef);
-            return userDoc.exists() ? userDoc.data().balance : 0;
-        }
-
-        // User Login function
         async function loginUser() {
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value.trim();
+
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const userId = userCredential.user.uid;
+
                 const userDoc = await getDoc(doc(db, "users", userId));
                 if (userDoc.exists()) {
                     currentUser = { id: userId, email: userDoc.data().email, ...userDoc.data() };
                     initializeWalletUI();
+                    updateRemainingSupply(); // Update remaining supply after login
                 } else {
                     alert("User data not found.");
                 }
@@ -303,66 +159,128 @@
             }
         }
 
-        // Initialize the wallet UI with user info
         function initializeWalletUI() {
             document.getElementById("login-div").style.display = "none";
             document.getElementById("wallet-div").style.display = "block";
+
             document.getElementById("user-id").innerText = currentUser.id;
             document.getElementById("user-email").innerText = currentUser.email;
             document.getElementById("balance").innerText = currentUser.balance;
             loadTransactionLog();
         }
 
-        // Send coins function
-        async function sendCoins() {
-            const recipientId = document.getElementById("recipient").value.trim();
-            const amount = parseInt(document.getElementById("amount").value.trim(), 10);
+     async function sendCoins() {
+    const recipientId = document.getElementById("recipient").value.trim();
+    const amount = parseInt(document.getElementById("amount").value.trim(), 10);
 
-            if (!recipientId || isNaN(amount) || amount <= 0) {
-                alert("Please enter a valid recipient ID and amount.");
-                return;
-            }
+    if (!recipientId || isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid recipient ID and amount.");
+        return;
+    }
 
-            if (currentUser.balance < amount) {
-                alert("Insufficient balance.");
-                return;
-            }
+    if (currentUser.balance < amount) {
+        alert("Insufficient balance.");
+        return;
+    }
 
-            try {
-                const recipientRef = doc(db, "users", recipientId);
-                const recipientDoc = await getDoc(recipientRef);
+    try {
+        // Fetch the recipient's document
+        const recipientRef = doc(db, "users", recipientId);
+        const recipientDoc = await getDoc(recipientRef);
 
-                if (recipientDoc.exists()) {
-                    const newRecipientBalance = recipientDoc.data().balance + amount;
-                    await updateDoc(recipientRef, { balance: newRecipientBalance });
+        if (recipientDoc.exists()) {
+            const newRecipientBalance = recipientDoc.data().balance + amount;
+            await updateDoc(recipientRef, { balance: newRecipientBalance });
 
-                    const senderRef = doc(db, "users", currentUser.id);
-                    const newSenderBalance = currentUser.balance - amount;
-                    await updateDoc(senderRef, { balance: newSenderBalance });
+            // Update sender's balance
+            const senderRef = doc(db, "users", currentUser.id);
+            const newSenderBalance = currentUser.balance - amount;
+            await updateDoc(senderRef, { balance: newSenderBalance });
 
-                    currentUser.balance = newSenderBalance;
-                    document.getElementById("balance").innerText = currentUser.balance;
+            currentUser.balance = newSenderBalance;
+            document.getElementById("balance").innerText = currentUser.balance;
 
-                    await addDoc(collection(db, "transactions"), {
-                        sender: currentUser.id,
-                        receiver: recipientId,
-                        amount,
-                        timestamp: new Date().toISOString(),
-                    });
+            // Log the transaction
+            await addDoc(collection(db, "transactions"), {
+                sender: currentUser.id,
+                receiver: recipientId,
+                amount,
+                timestamp: new Date().toISOString(),
+            });
 
-                    alert(`Successfully sent ${amount} coins to ${recipientId}.`);
-                    loadTransactionLog();
-                } else {
-                    alert("Recipient not found.");
-                }
-            } catch (error) {
-                console.error("Error sending coins:", error);
-                alert("Failed to send coins.");
-            }
+            alert(`Successfully sent ${amount} coins to ${recipientId}.`);
+            loadTransactionLog();
+            updateRemainingSupply();  // Update remaining supply after transaction
+        } else {
+            alert("Recipient not found.");
+        }
+    } catch (error) {
+        console.error("Error sending coins:", error);
+        alert("Failed to send coins. Check the console for details.");
+    }
+}
+
+async function updateRemainingSupply() {
+    try {
+        // Fetch the total supply and current circulation from Firestore
+        const totalSupplyDoc = await getDoc(totalSupplyDocRef);
+
+        // Check if the document exists
+        if (!totalSupplyDoc.exists()) {
+            console.error("Firestore document 'config/totalSupply' does not exist.");
+            return;
         }
 
-        // Load transaction log for a user
-        async function loadTransactionLog(userId) {
+        // Get the values of totalSupply and currentCirculation
+        let totalSupply = totalSupplyDoc.data().totalSupply;
+        let currentCirculation = 0;
+
+        // Debugging: log the fetched values
+        console.log("Fetched totalSupply:", totalSupply);  // Debug log for totalSupply
+        console.log("Fetched currentCirculation:", totalSupplyDoc.data().currentCirculation);  // Debug log for currentCirculation
+
+        // If totalSupply is undefined or NaN, log the error
+        if (typeof totalSupply === 'undefined' || isNaN(totalSupply)) {
+            console.error("Invalid totalSupply value:", totalSupply);
+            return;  // Stop execution if totalSupply is invalid
+        }
+
+        // Fetch all user balances and calculate current circulation
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        usersSnapshot.forEach((userDoc) => {
+            currentCirculation += userDoc.data().balance || 0;
+        });
+
+        // Debugging log
+        console.log("Calculated currentCirculation:", currentCirculation);  // Debug log for currentCirculation
+
+        // Update currentCirculation in Firestore
+        await updateDoc(totalSupplyDocRef, {
+            currentCirculation: currentCirculation
+        });
+
+        // Ensure totalSupply and currentCirculation are valid numbers
+        if (isNaN(totalSupply) || isNaN(currentCirculation)) {
+            console.error("Invalid total supply or current circulation values.");
+            return;
+        }
+
+        // Calculate remaining supply
+        const remainingSupply = totalSupply - currentCirculation;
+
+        // Debugging log for remainingSupply
+        console.log("Remaining Supply:", remainingSupply);  // Debug log for remainingSupply
+
+        // Update the UI with the remaining supply
+        document.getElementById("remaining-supply").innerText = remainingSupply;
+
+    } catch (error) {
+        console.error("Error updating remaining supply:", error);
+    }
+}
+
+
+        async function loadTransactionLog() {
             const transactionLogContainer = document.getElementById("transactions-log");
             transactionLogContainer.innerHTML = "";
 
@@ -370,7 +288,7 @@
                 const transactionsSnapshot = await getDocs(collection(db, "transactions"));
                 transactionsSnapshot.forEach(doc => {
                     const transaction = doc.data();
-                    if (transaction.sender === userId || transaction.receiver === userId) {
+                    if (transaction.sender === currentUser.id || transaction.receiver === currentUser.id) {
                         transactionLogContainer.innerHTML += `<p>${transaction.timestamp}: Sent ${transaction.amount} coins to ${transaction.receiver}</p>`;
                     }
                 });
@@ -380,134 +298,9 @@
             }
         }
 
-        // Update remaining supply function
-        async function updateRemainingSupply() {
-            try {
-                const totalSupplyDocRef = doc(db, "config", "totalSupply");
-                const totalSupplyDoc = await getDoc(totalSupplyDocRef);
-
-                if (!totalSupplyDoc.exists()) {
-                    console.error("Firestore document 'config/totalSupply' does not exist.");
-                    return;
-                }
-
-                let totalSupply = totalSupplyDoc.data().totalSupply;
-                let currentCirculation = 0;
-
-                const usersSnapshot = await getDocs(collection(db, "users"));
-                usersSnapshot.forEach((userDoc) => {
-                    currentCirculation += userDoc.data().balance || 0;
-                });
-
-                await updateDoc(totalSupplyDocRef, { currentCirculation: currentCirculation });
-
-                if (isNaN(totalSupply) || isNaN(currentCirculation)) {
-                    console.error("Invalid total supply or current circulation values.");
-                    return;
-                }
-
-                const remainingSupply = totalSupply - currentCirculation;
-                document.getElementById("remaining-supply").innerText = remainingSupply;
-
-            } catch (error) {
-                console.error("Error updating remaining supply:", error);
-            }
-        }
-
-        // Logout function
-        document.getElementById("logout-btn").addEventListener("click", async () => {
-            await signOut(auth);
-            console.log("User logged out successfully.");
-            currentUser = null;
-            document.getElementById("login-div").style.display = "block";
-            document.getElementById("wallet-div").style.display = "none";
-        });
-
-        // Modal Functions
-        document.getElementById("forgot-password-link").addEventListener("click", () => {
-            document.getElementById("modal-overlay").style.display = "block";
-            document.getElementById("forgot-password-modal").style.display = "block";
-        });
-
-        document.getElementById("register-link").addEventListener("click", () => {
-            document.getElementById("modal-overlay").style.display = "block";
-            document.getElementById("register-modal").style.display = "block";
-        });
-
-        document.getElementById("close-forgot-password").addEventListener("click", closeModal);
-        document.getElementById("close-register").addEventListener("click", closeModal);
-
-        function closeModal() {
-            document.getElementById("modal-overlay").style.display = "none";
-            document.querySelectorAll(".modal").forEach(modal => {
-                modal.style.display = "none";
-            });
-        }
-   async function resetPassword() {
-            const email = document.getElementById("forgot-email").value.trim();
-            if (!email) {
-                alert("Please enter your email address.");
-                return;
-            }
-
-            try {
-                await sendPasswordResetEmail(auth, email);
-                alert("Password reset email sent successfully.");
-                closeModal();
-            } catch (error) {
-                console.error("Error sending password reset email:", error);
-                alert("Failed to send password reset email. Check the console for details.");
-            }
-        }
-        // Register New User
-        async function registerUser() {
-            const email = document.getElementById("register-email").value.trim();
-            const password = document.getElementById("register-password").value.trim();
-
-            if (!email || !password) {
-                alert("Please fill in all fields.");
-                return;
-            }
-
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const uid = userCredential.user.uid;
-                await createUser(uid, email);
-                alert("User registered successfully.");
-                closeModal();
-            } catch (error) {
-                console.error("Error registering user:", error);
-                alert("Failed to register user.");
-            }
-        }
-
-        // Create new user in Firestore
-        async function createUser(userId, email = "") {
-            const seedPhrase = Array.from({ length: 4 }, () =>
-                ["apple", "banana", "cherry", "delta", "eagle", "falcon", "grape", "honey", "ivory", "jungle"][
-                    Math.floor(Math.random() * 10)
-                ]
-            ).join(" ");
-
-            const newUser = {
-                email,
-                balance: 0,
-                seedPhrase,
-            };
-
-            try {
-                await setDoc(doc(db, "users", userId), newUser);
-                console.log(`User created successfully! User ID: ${userId}`);
-            } catch (error) {
-                console.error("Error creating user:", error);
-            }
-        }
-
+        // Event listeners
         document.getElementById("login-btn").addEventListener("click", loginUser);
         document.getElementById("send-btn").addEventListener("click", sendCoins);
-        document.getElementById("send-reset-email").addEventListener("click", resetPassword);
-        document.getElementById("register-btn").addEventListener("click", registerUser);
-
     </script>
 </body>
 </html>
