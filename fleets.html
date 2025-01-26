@@ -347,7 +347,9 @@ a:active {
   <div class="fleet-container" id="fleetContainer"></div>
 
   <div class="add-fleet-btn" id="addFleetBtn">+</div>
-  
+  <div class="user-avatar" id="userAvatar">
+    <img src="placeholder.jpeg" alt="User Avatar" />
+  </div>
 <div id="commentPanel" class="comment-panel">
   <div class="comment-header">
     <h3>Comments</h3>
@@ -1693,10 +1695,8 @@ async function compressFile(file, maxDimension = 1024) {
 addFleetBtn.addEventListener("click", () => {
   // Render the upload form in the modal
   modalContent.innerHTML = `
-    <h1>Upload</h1>
-    <form id="uploadForm"> <div class="user-avatar" id="userAvatar">
-    <img src="placeholder.jpeg" alt="User Avatar" />
-  </div>
+    <h1>Upload Your Fleet</h1>
+    <form id="uploadForm">
       <input type="file" id="fileInput" accept="image/*,video/*" required />
       <input type="text" id="titleInput" placeholder="Title" required />
       <textarea id="descriptionInput" placeholder="Description"></textarea>
