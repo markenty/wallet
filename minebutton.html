@@ -5,39 +5,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mining Interface</title>
     <style>
-        body {background-color: #00d1b2;            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        input, select, button {
-            margin: 5px 0;
-        }
-        #mine-progress {
-            margin-top: 10px;
-        }
-        /* Arcade-style button styling */
-        .arcade-button {
-            background-color: red;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 16px;
-            margin: 10px 2px;
-            cursor: pointer;
-            border-radius: 12px;
-            box-shadow: 0 5px #999;
-            transition: all 0.2s ease;
-        }
-        .arcade-button:active {
-            box-shadow: 0 2px #666;
-            transform: translateY(4px);
-        }
-        /* Hide main content until user is authenticated */
-        #main-content {
-            display: none;
-        }
+       body {
+    background-color: #00d1b2;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Full-screen iframe */
+iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: -1; /* Ensures the iframe is behind other elements */
+    object-fit: cover; /* Ensures it covers the entire screen */
+}
+
+/* Main content overlay */
+#main-content {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5); /* Transparent background */
+    color: white;
+    text-align: center;
+    z-index: 1;
+}
+
+/* Arcade-style button styling */
+.arcade-button {
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 10px 2px;
+    cursor: pointer;
+    border-radius: 12px;
+    box-shadow: 0 5px #999;
+    transition: all 0.2s ease;
+}
+
+.arcade-button:active {
+    box-shadow: 0 2px #666;
+    transform: translateY(4px);
+}
+
+/* Summary section styling */
+#summary {
+    visibility: hidden;
+    margin-top: 20px;
+}
+
+/* Hide main content until user is authenticated */
+#main-content {
+    display: none;
+}
+
+/* Login and register form */
+#auth-section, #register-section {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
     </style>
 </head>
 <body>
