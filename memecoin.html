@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fleets2</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: #fff;
+      touch-action: manipulation;
+    }
+      a:link,
+a:visited,
+a:hover,
+a:active {
+  color: white !important;
+  font-weight: bold;
+  text-decoration: none; /* optional: removes underline */
+}
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    .fleet-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+    }
+    .fleet-item {
+      position: relative;
+      scroll-snap-align: start;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .fleet-item img, .fleet-item video {
+    width: 100%; /* Make sure the element takes the full width of the container */
+    height: 100%; /* Optional: Adjust if you want a specific height */
+    object-fit: contain; /* Ensures the media fits within the container, no cropping */
+    object-position: center; /* Centers the media within the container */
+}
+    .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .user-info-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px;
+      border-radius: 5px;
+    }
+    .user-info-overlay img {
+      width: 30px;
+      height: 30px;
+      object-fit: cover;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .user-info-overlay span {
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+    }
+    .text-content {
+      position: absolute;
+      bottom: 50px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+      color: white;
+    }
+    .add-fleet-btn, .user-avatar {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      z-index: 1001;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    .add-fleet-btn {
+      bottom: 20px;
+      right: 20px;
+      background: #007bff;
+    }
+    .add-fleet-btn:hover {
+      background: #0056b3;
+    }
+    .user-avatar {
+      bottom: 20px;
+      left: 20px;
+      background: #333;
+    }
+    .user-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    } /* Overlay covers entire viewport */
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 10px; /* Space around modal on small screens */
+  box-sizing: border-box;
+}
+
+/* Responsive modal content */
+.modal-content {
+  background: #333;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  width: 100%;
+  max-width: 400px;   /* Ensures a maximum width on larger screens */
+  box-sizing: border-box;
+  overflow-y: auto;
+  max-height: 90vh;   /* Ensures the modal doesn't exceed viewport height */
+}
+
+/* Input and button styling for better mobile experience */
+.modal-content input,
+.modal-content textarea,
+.modal-content button {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  box-sizing: border-box;
+  font-size: 1rem;
+}
+
+/* Responsive typography adjustments (optional) */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 15px;
+  }
+
+  .modal-content h1 {
+    font-size: 1.5rem;
+  }
+}/* Interaction buttons container */
+.interaction-container {
+  position: absolute;
+  right: 10px;
+  bottom: 160px; /* Ensure it's above the Create button */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px; /* Add spacing between buttons */
+  z-index: 2; /* Ensure it appears above other elements */
+}
+
+/* Individual interaction buttons */
+.interaction-button {
+  background: rgba(255, 255, 255, 0.1); /* Transparent background for better contrast */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px; /* Larger, tappable size */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+  transition: transform 0.2s, background 0.3s;
+}
+
+.interaction-button:hover {
+  background: rgba(255, 255, 255, 0.2); /* Highlight effect on hover */
+  transform: scale(1.1); /* Slight zoom effect */
+}
+
+.interaction-button:active {
+  transform: scale(1); /* Reset scale on click */
+}
+.comment-panel {
+  position: fixed;
+  bottom: -100%; /* Hidden by default */
+  left: 0;
+  width: 100%;
+  height: 60%;
+  background: #222;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  transition: bottom 0.3s ease-in-out;
+  z-index: 1000;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #333;
+  border-bottom: 1px solid #444;
+}
+
+.comment-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.comment-input {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #444;
+}
+
+.comment-input input {
+  flex: 1;
+  padding: 10px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 5px;
+}
+
+.comment-input button {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+/* Interaction button style */
+.interaction-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: orange;
+  border: 2px solid rgba(0, 123, 255, 0.8); /* Blue border */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px; /* Adjust font size for better visibility */
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+  transition: transform 0.2s, background 0.3s, border 0.3s;
+}
+
+/* Highlight effect on hover */
+.interaction-button:hover {
+  background: rgba(0, 123, 255, 0.2);
+  border-color: rgba(0, 123, 255, 1); /* Brighten border on hover */
+  transform: scale(1.1);
+}
+
+/* Active state reset */
+.interaction-button:active {
+  transform: scale(1);
+}
+
+/* Interaction count style */
+.interaction-button span {
+  color: rgba(0, 123, 255, 1); /* Blue text color */
+  text-shadow: 0 0 2px rgba(0, 123, 255, 0.8); /* Add subtle glow */
+}
+      
+.loading-spinner {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.2);
+  border-top: 5px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay">
+    <div class="modal-content"></div>
+  </div>
+<div class="loading-spinner" id="loadingSpinner">
+  <div class="spinner"></div>
+</div>
+  <div class="fleet-container" id="fleetContainer"></div>
+
+  <div class="add-fleet-btn" id="addFleetBtn">+</div>
+  <div class="user-avatar" id="userAvatar">
+    <img src="https://via.placeholder.com/60" alt="User Avatar" />
+  </div>
+<div id="commentPanel" class="comment-panel">
+  <div class="comment-header">
+    <h3>Comments</h3>
+    <button id="closeCommentPanel">Close</button>
+  </div> <div class="comment-input">
+    <input type="text" id="commentInput" placeholder="Add a comment..." />
+    <button id="postCommentBtn">Post</button>
+  </div>
+  <div id="commentList" class="comment-list"></div>
+ 
+</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, setDoc, updateDoc, writeBatch, query, where 
+} from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+
+    // Firebase initialization
+  let lastVisible = null; // To keep track of the last document
+const pageSize = 10; // Number of fleets to load per request
+
+async function fetchFleetsPaginated() {
+  const queryRef = collection(db, FLEETS_COLLECTION);
+  let fleetQuery;
+
+  if (lastVisible) {
+    fleetQuery = query(queryRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+  } else {
+    fleetQuery = query(queryRef, orderBy("createdAt", "desc"), limit(pageSize));
+  }
+
+  const querySnapshot = await getDocs(fleetQuery);
+  const fleets = [];
+  querySnapshot.forEach((doc) => {
+    const fleet = applyDefaultFleetFields(doc.data());
+    fleets.push({ id: doc.id, ...fleet });
+  });
+
+  lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1]; // Update last visible document
+  return fleets;
+}
+
+// Call fetchFleetsPaginated() whenever user scrolls to the bottom
+window.addEventListener("scroll", async () => {
+  if (window.innerHeight + window.scrollY >= document.body.offsetHeight) {
+    const newFleets = await fetchFleetsPaginated();
+    newFleets.forEach(renderFleet);
+  }
+});  
+
+async function loadFleetsWithCache() {
+  const cachedFleets = JSON.parse(localStorage.getItem("cachedFleets")) || [];
+  if (cachedFleets.length) {
+    cachedFleets.forEach(renderFleet); // Render cached fleets
+  }
+
+  const fetchedFleets = await fetchFleets();
+  localStorage.setItem("cachedFleets", JSON.stringify(fetchedFleets));
+  fleetContainer.innerHTML = ""; // Clear old data
+  fetchedFleets.forEach(renderFleet); // Render new fleets
+}
+
+      
+   // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+
+      let activeFleetId = null; // To track which fleet's comments are open
+
+function openCommentPanel(fleetId) {
+  const commentPanel = document.getElementById("commentPanel");
+  commentPanel.style.bottom = "0";
+  activeFleetId = fleetId; // Set the active fleet
+  loadComments(fleetId); // Load comments for the fleet
+}
+
+function closeCommentPanel() {
+  const commentPanel = document.getElementById("commentPanel");
+  commentPanel.style.bottom = "-100%";
+  activeFleetId = null; // Clear active fleet
+}
+async function loadComments(fleetId) {
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+    renderComments(comments);
+  }
+}
+async function fixCommentTimestamps() {
+  const fleetSnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+
+  fleetSnapshot.forEach(async (docSnap) => {
+    const fleetData = docSnap.data();
+    const comments = fleetData.comments || [];
+
+    const updatedComments = comments.map((comment) => {
+      if (!comment.timestamp || comment.timestamp <= 0) {
+        return { ...comment, timestamp: Date.now() }; // Assign a valid timestamp
+      }
+      return comment;
+    });
+
+    // Update Firestore with fixed comments
+    await updateDoc(doc(db, FLEETS_COLLECTION, docSnap.id), { comments: updatedComments });
+  });
+
+  alert("Timestamps for comments have been fixed.");
+}
+function renderComments(comments = [], fleetId, parentElement = document.getElementById("commentList")) {
+  parentElement.innerHTML = ""; // Clear existing comments
+
+  comments.forEach((comment, index) => {
+    const commentDiv = document.createElement("div");
+    commentDiv.className = "comment-item";
+
+    const formattedTimestamp = comment.timestamp
+      ? new Date(comment.timestamp).toLocaleString()
+      : "No timestamp available";
+
+    // Add comment content
+    commentDiv.innerHTML = `
+      <div>
+        <strong>${comment.username || "Unknown User"}</strong>
+        <span>${formattedTimestamp}</span>
+        <p>${comment.comment || "No content"}</p>
+      </div>
+    `;
+
+ 
+    parentElement.appendChild(commentDiv);
+  });
+}
+
+document.getElementById("postCommentBtn").addEventListener("click", async () => {
+  const commentInput = document.getElementById("commentInput");
+  const commentText = commentInput.value.trim();
+
+  if (!commentText) {
+    alert("Comment cannot be empty.");
+    return;
+  }
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    const newComment = {
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      comment: commentText,
+      timestamp: Date.now(),
+      replies: [], // For nested replies
+    };
+
+    comments.push(newComment);
+
+ // Update Firestore with the new comments array
+    await updateDoc(fleetRef, { comments });
+    commentInput.value = ""; // Clear input
+    loadFleets(); // Refresh fleets to update the comment count
+    loadComments(activeFleetId); // Refresh comments in the panel
+  }
+});
+async function deleteComment(fleetId, commentIndex) {
+  try {
+    console.log("Attempting to delete comment with fleetId:", fleetId, "and commentIndex:", commentIndex);
+
+    const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+    const fleetSnap = await getDoc(fleetRef);
+
+    if (!fleetSnap.exists()) {
+      console.error("Fleet document not found for fleetId:", fleetId);
+      alert("Fleet not found.");
+      return;
+    }
+
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+    console.log("Current comments array before deletion:", comments);
+
+    // Validate the index
+    if (commentIndex < 0 || commentIndex >= comments.length) {
+      console.error("Invalid comment index:", commentIndex);
+      alert("Invalid comment index.");
+      return;
+    }
+
+    // Validate ownership
+    const commentToDelete = comments[commentIndex];
+    if (commentToDelete.userId !== currentUser.userId) {
+      console.error("Unauthorized deletion attempt by user:", currentUser.userId);
+      alert("You can only delete your own comments.");
+      return;
+    }
+
+    // Remove the comment
+    comments.splice(commentIndex, 1);
+
+    // Update Firestore
+    await updateDoc(fleetRef, { comments });
+    console.log("Comment deleted successfully.");
+    loadComments(fleetId); // Refresh comments
+  } catch (error) {
+    console.error("Error deleting comment:", error.message);
+    alert("Failed to delete the comment.");
+  }
+}
+
+
+
+
+async function replyToComment(commentIndex) {
+  const replyText = prompt("Enter your reply:");
+  if (!replyText) return;
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, activeFleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    const reply = {
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      comment: replyText,
+      timestamp: Date.now(),
+    };
+
+    if (!comments[commentIndex].replies) {
+      comments[commentIndex].replies = [];
+    }
+
+    comments[commentIndex].replies.push(reply);
+
+    // Update Firestore with the reply
+    await updateDoc(fleetRef, { comments });
+    loadComments(activeFleetId); // Refresh comments
+  }
+}
+
+// Attach close button functionality
+document.getElementById("closeCommentPanel").addEventListener("click", closeCommentPanel);
+
+async function toggleLike(fleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to like this fleet.");
+    return;
+  }
+async function toggleRepost(fleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to repost this fleet.");
+    return;
+  }
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const reposts = fleetData.reposts || [];
+    const userIdIndex = reposts.indexOf(currentUser.userId);
+
+    if (userIdIndex >= 0) {
+      // User has already reposted, so remove the repost
+      reposts.splice(userIdIndex, 1);
+    } else {
+      // User has not reposted, so add their repost
+      reposts.push(currentUser.userId);
+    }
+
+    // Update Firestore with the new reposts array
+    await updateDoc(fleetRef, { reposts });
+
+    console.log("Reposts updated:", reposts);
+  } else {
+    console.error("Fleet not found.");
+  }
+}
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const likes = fleetData.likes || [];
+    const userIdIndex = likes.indexOf(currentUser.userId);
+
+    if (userIdIndex >= 0) {
+      // User has already liked, so remove the like
+      likes.splice(userIdIndex, 1);
+    } else {
+      // User has not liked, so add their like
+      likes.push(currentUser.userId);
+    }
+
+    // Update Firestore with the new likes array
+    await updateDoc(fleetRef, { likes });
+  // Update Firestore with the new likes array and last interacted timestamp
+    await updateDoc(fleetRef, {
+      likes,
+      lastInteracted: Date.now(),
+    });
+
+    console.log("Likes updated:", likes);
+  } else {
+    console.error("Fleet not found.");
+  }
+}
+
+// Firebase initialization
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+    // Constants
+      
+    const USERS_COLLECTION = "users";
+const defaultUserFields = {
+  userId: '',                 // Unique identifier for the user
+  username: 'Anonymous',      // Default username
+  avatar: 'https://via.placeholder.com/60', // Default avatar
+  password: null,             // Password (hashed if security is implemented)
+  accountType: 'main',        // Either 'main' or 'sub'
+  parentMain: null            // Reference to parent account (if sub)
+};
+ 
+      const FLEETS_COLLECTION = "fleets";
+const defaultFleetFields = {
+  fleetId: '',                // Unique identifier for the fleet
+  userId: '',                 // Creator's user ID
+  username: '',               // Creator's username
+  avatar: '',                 // Creator's avatar
+  type: '',                   // Media type (e.g., image/jpeg, video/mp4)
+  data: '',                   // Base64-encoded media content
+  title: '',                  // Fleet title
+  description: '',            // Fleet description
+  createdAt: 0,               // Timestamp of creation
+  likes: [],                  // Array of user IDs who liked the fleet
+  reposts: [],                // Array of user IDs who reposted the fleet
+  comments: [],                 // Array of comment objects
+};
+    // DOM Elements
+    const fleetContainer = document.getElementById("fleetContainer");
+    const addFleetBtn = document.getElementById("addFleetBtn");
+    const userAvatar = document.getElementById("userAvatar");
+    const overlay = document.getElementById("overlay");
+    const modalContent = overlay.querySelector(".modal-content");
+
+    let currentUser = {
+      userId: null,
+      avatar: null,
+      username: "Anonymous",
+      password: null
+    };
+// functions
+      function initializeFleetListener() {
+  const fleetRef = collection(db, FLEETS_COLLECTION);
+  const q = query(fleetRef, orderBy("createdAt", "desc"));
+
+  onSnapshot(q, (snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added") {
+        const newFleet = applyDefaultFleetFields(change.doc.data());
+        newFleet.id = change.doc.id;
+
+        // Ensure it doesn't duplicate if already added
+        const existingFleet = document.querySelector(`[data-id="${newFleet.id}"]`);
+        if (!existingFleet) {
+          prependFleetToFeed(newFleet); // Add to the top
+        }
+      }
+    });
+  });
+}
+function prependFleetToFeed(fleet) {
+  const fleetItem = document.createElement("div");
+  fleetItem.className = "fleet-item";
+
+  // Render fleet content
+  fleetItem.innerHTML = `
+    <div class="user-info-overlay">
+      <img src="${fleet.avatar || "https://via.placeholder.com/60"}" alt="User Avatar">
+      <span>${fleet.username}</span>
+    </div>
+    ${
+      fleet.type.startsWith("image/")
+        ? `<img src="${fleet.data}" alt="${fleet.title}" />`
+        : `<video src="${fleet.data}" controls autoplay muted></video>`
+    }
+    <div class="text-content">
+      <h2>${fleet.title}</h2>
+      <p>${fleet.description}</p>
+    </div>
+  `;
+
+  fleetContainer.prepend(fleetItem); // Add to the top of the feed
+}
+
+window.onload = async () => {
+  await loadUserProfile();
+  await loadFleets();
+  initializeFleetListener(); // Start listening for live updates
+};
+
+      async function refreshUI() {
+  await loadUserProfile(); // refresh user profile information
+  await loadFleets();      // reload fleet data
+  // Add calls to other UI update functions as needed
+}
+    // User Management Functions
+async function loginUser(username, password) {
+  // Query for a user with the given username
+  const usersRef = collection(db, USERS_COLLECTION);
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if(querySnapshot.empty) {
+    alert("Invalid credentials.");
+    return;
+  }
+
+  // Assuming usernames are unique, take the first matching user
+  const userDoc = querySnapshot.docs[0];
+  const userData = applyDefaultUserFields(userDoc.data());
+
+  // Validate password
+  if(userData.password === password) {
+    currentUser = { userId: userData.userId, ...userData };
+    localStorage.setItem("userId", userData.userId);
+    console.log("User logged in:", currentUser.username);
+  } else {
+    alert("Invalid credentials.");
+  }
+}
+function applyDefaultUserFields(user) {
+  return { ...defaultUserFields, ...user };
+}
+   async function registerUser(username, password) {
+  const usersRef = collection(db, USERS_COLLECTION);
+
+  // Check if username already exists
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if (!querySnapshot.empty) {
+    alert("Username already exists. Please choose another.");
+    return;
+  }
+
+  // Create new user document
+  const userId = `user_${Date.now()}`;
+  const newUser = {
+    ...defaultUserFields,
+    userId,
+    username,
+    password, // Store securely (e.g., hashed in a real-world app)
+    createdAt: Date.now(),
+  };
+
+  await setDoc(doc(db, USERS_COLLECTION, userId), newUser);
+  alert("Registration successful!");
+
+  // Optionally, log in the user after registration
+  await loginUser(username, password);
+}
+
+    function logoutUser() {
+      currentUser = { userId: null, avatar: null, username: "Anonymous", password: null };
+      localStorage.removeItem("userId");
+    }
+function applyDefaultFleetFields(fleet) {
+  // Merge default fields with existing fleet data
+  return { ...defaultFleetFields, ...fleet };
+}
+    // Render modal content based on login state
+    async function handleUserAvatarClick() {
+      const isLoggedIn = currentUser && currentUser.userId;
+      if (isLoggedIn) {
+        modalContent.innerHTML = `
+          <h1>Account Management</h1>
+          <p>Username: ${currentUser.username}</p>
+          <a href="#" id="changeUsernameLink">Change Username</a>
+          <div id="changeUsernameFields" style="display:none;">
+            <input type="text" id="newUsernameInput" placeholder="New Username" required />
+            <button id="saveUsernameBtn">Save Username</button>
+          </div>
+          <p><img src="${currentUser.avatar}" alt="User Avatar" width="50"/></p>
+          <a href="#" id="changeAvatarLink">Change Avatar</a>
+          <div id="changeAvatarFields" style="display:none;">
+            <input type="file" id="newAvatarInput" accept="image/*" />
+            <button id="saveAvatarBtn">Save Avatar</button>
+          </div>
+          <p>User ID: ${currentUser.userId}</p>
+          <a href="#" id="changePasswordLink">Change Password</a>
+          <div id="changePasswordFields" style="display:none;">
+            <input type="password" id="currentPasswordInput" placeholder="Current Password" required />
+            <input type="password" id="newPasswordInput" placeholder="New Password" required />
+            <button id="savePasswordBtn">Save Password</button>
+          </div>
+          <a href="#" id="toggleMainAccountLink">Set as Main Account</a> | 
+<a href="#" id="toggleSubAccountLink">Set as Sub Account</a>
+<div id="selectParentMainFields" style="display:none;">
+  <select id="parentMainSelect"></select>
+  <button id="setParentMainBtn">Assign Parent Main</button>
+</div>
+
+          <button id="switchAccountBtn">Add/Switch Account</button>
+          <select id="accountSwitchSelect" style="display:none;"></select>
+          <button id="logoutBtn">Logout</button>
+        `;
+        overlay.style.display = "flex";
+        attachAccountManagementEvents();
+      } else {
+        modalContent.innerHTML = `
+          <h1>Login</h1>
+          <form id="loginForm">
+  <input type="text" id="loginUsername" placeholder="Username" required />
+  <input type="password" id="loginPassword" placeholder="Password" required />
+  <button type="submit">Login</button>
+</form>
+        `;
+        overlay.style.display = "flex";
+        attachAuthEvents();
+      }
+    }
+
+    function attachAuthEvents() {
+   document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = document.getElementById("loginUsername").value;
+  const password = document.getElementById("loginPassword").value;
+  await loginUser(username, password);
+  overlay.style.display = "none";
+});
+
+      document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("registerUsername").value;
+        const password = document.getElementById("registerPassword").value;
+        await registerUser(username, password);
+        overlay.style.display = "none";
+      });
+    }
+
+    function attachAccountManagementEvents() {
+        // Toggle to set account as main
+document.getElementById("toggleMainAccountLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if(currentUser.accountType !== 'main') {
+    currentUser.accountType = 'main';
+    currentUser.parentMain = null;
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+      accountType: 'main',
+      parentMain: null
+    });
+    alert("Account set as Main.");
+  } else {
+    alert("Already a Main Account.");
+  }
+});
+
+// Toggle to set account as sub and display parent selection
+document.getElementById("toggleSubAccountLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  if(currentUser.accountType !== 'sub') {
+    const selectParentDiv = document.getElementById("selectParentMainFields");
+    selectParentDiv.style.display = "block";
+    const mainsSnapshot = await getDocs(collection(db, USERS_COLLECTION));
+    const parentMainSelect = document.getElementById("parentMainSelect");
+    parentMainSelect.innerHTML = '';
+    mainsSnapshot.forEach(docSnap => {
+      const userData = docSnap.data();
+      if(userData.accountType === 'main' && userData.userId !== currentUser.userId) {
+        const option = document.createElement("option");
+        option.value = userData.userId;
+        option.textContent = userData.username;
+        parentMainSelect.appendChild(option);
+      }
+    });
+  } else {
+    alert("Already a Sub Account.");
+  }
+});
+async function addSubaccount(username, password) {
+  // Query for a user with the given username
+  const usersRef = collection(db, USERS_COLLECTION);
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if(querySnapshot.empty) {
+    alert("No user found with that username.");
+    return;
+  }
+
+  // Assuming usernames are unique, use the first matching user
+  const userDoc = querySnapshot.docs[0];
+  const userData = applyDefaultUserFields(userDoc.data());
+
+  // Verify the password
+  if(userData.password !== password) {
+    alert("Incorrect password.");
+    return;
+  }
+
+  // Update the found user to be a subaccount of the current main account
+  await updateDoc(doc(db, USERS_COLLECTION, userData.userId), {
+    accountType: 'sub',
+    parentMain: currentUser.userId
+  });
+
+  alert(`Subaccount ${userData.username} added under ${currentUser.username}.`);
+}
+
+// Set current account as sub-account with selected parent
+document.getElementById("setParentMainBtn").addEventListener("click", async () => {
+  const selectedParentId = document.getElementById("parentMainSelect").value;
+  if(selectedParentId) {
+    currentUser.accountType = 'sub';
+    currentUser.parentMain = selectedParentId;
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+      accountType: 'sub',
+      parentMain: selectedParentId
+    });
+    alert("Account set as Sub Account under selected Main.");
+    document.getElementById("selectParentMainFields").style.display = "none";
+  } else {
+    alert("Please select a Main Account.");
+  }
+});
+
+      // Toggle Change Username Fields
+      document.getElementById("changeUsernameLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changeUsernameFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
+
+      // Save new username
+      document.getElementById("saveUsernameBtn").addEventListener("click", async () => {
+        const newUsername = document.getElementById("newUsernameInput").value.trim();
+        if (newUsername) {
+          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), {
+            ...currentUser,
+            username: newUsername
+          });
+          currentUser.username = newUsername;
+          alert("Username updated.");
+          document.querySelector("p").innerText = `Username: ${currentUser.username}`;
+          document.getElementById("changeUsernameFields").style.display = "none";
+        } else {
+          alert("Please enter a valid username.");
+        }
+      });
+
+      // Toggle Change Avatar Fields
+      document.getElementById("changeAvatarLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changeAvatarFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
+
+      // Save new avatar
+      document.getElementById("saveAvatarBtn").addEventListener("click", async () => {
+        const fileInput = document.getElementById("newAvatarInput");
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("Please select an image file.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const newAvatar = event.target.result;
+          try {
+            const userDocRef = doc(db, USERS_COLLECTION, currentUser.userId);
+            await updateDoc(userDocRef, { avatar: newAvatar });
+            currentUser.avatar = newAvatar;
+            alert("Avatar updated.");
+            userAvatar.querySelector("img").src = newAvatar;
+            document.getElementById("changeAvatarFields").style.display = "none";
+          // Batch update all fleet documents belonging to current user
+      const fleetsSnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+      const batch = writeBatch(db);
+      fleetsSnapshot.forEach(fleetDoc => {
+        const data = fleetDoc.data();
+        if (data.userId === currentUser.userId) {
+          const fleetRef = doc(db, FLEETS_COLLECTION, fleetDoc.id);
+          batch.update(fleetRef, { avatar: newAvatar });
+        }
+      });
+      await batch.commit();
+
+      // Refresh fleet items to reflect new avatar in UI
+      loadFleets();
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      alert("Failed to update avatar. Please try again.");
+    }
+  };
+
+  reader.onerror = (error) => {
+    console.error("FileReader error:", error);
+    alert("Error reading file.");
+  };
+  reader.readAsDataURL(file);
+});
+
+      // Toggle Change Password Fields
+      document.getElementById("changePasswordLink").addEventListener("click", (e) => {
+        e.preventDefault();
+        const fields = document.getElementById("changePasswordFields");
+        fields.style.display = fields.style.display === "none" ? "block" : "none";
+      });
+
+      // Save new password
+     document.getElementById("savePasswordBtn").addEventListener("click", async () => {
+  const currentPwd = document.getElementById("currentPasswordInput").value.trim();
+  const newPwd = document.getElementById("newPasswordInput").value.trim();
+
+  if (!newPwd) {
+    alert("New password cannot be empty.");
+    return;
+  }
+
+  if (currentUser.username === "Anonymous") {
+    // Skip current password validation for anonymous users
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), { password: newPwd });
+    currentUser.password = newPwd; // Update the local user object
+    alert("Password updated successfully!");
+  } else if (currentPwd === currentUser.password) {
+    // Regular password validation for registered users
+    await updateDoc(doc(db, USERS_COLLECTION, currentUser.userId), { password: newPwd });
+    currentUser.password = newPwd; // Update the local user object
+    alert("Password updated successfully!");
+  } else {
+    alert("Current password is incorrect.");
+  }
+});
+
+      // Account Switcher Setup
+      const switchBtn = document.getElementById("switchAccountBtn");
+      const accountSelect = document.getElementById("accountSwitchSelect");
+switchBtn.addEventListener("click", async () => {
+  accountSelect.style.display = accountSelect.style.display === "none" ? "block" : "none";
+  
+  if(accountSelect.style.display === "block") {
+    accountSelect.innerHTML = `<option disabled selected>Select Option</option>`;
+    
+    // If current user is a subaccount, offer an option to switch back to main
+    if(currentUser.accountType === 'sub' && currentUser.parentMain) {
+      accountSelect.innerHTML += `<option value="switch-back-main">Switch Back to Main Account</option>`;
+    }
+    
+    // If current user is a main account, list their subaccounts and add-subaccount option
+    if(currentUser.accountType === 'main') {
+      const snapshot = await getDocs(collection(db, USERS_COLLECTION));
+      let subAccountsFound = false;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if(data.accountType === 'sub' && data.parentMain === currentUser.userId) {
+          accountSelect.innerHTML += `<option value="${data.userId}">${data.username}</option>`;
+          subAccountsFound = true;
+        }
+      });
+      accountSelect.innerHTML += `<option value="add-subaccount">Add Subaccount...</option>`;
+      if(!subAccountsFound) {
+        accountSelect.innerHTML += `<option disabled>No existing sub accounts</option>`;
+      }
+    }
+  } else {
+    accountSelect.innerHTML = "";
+  }
+});
+        // Change Event: Handling dropdown selection
+accountSelect.addEventListener("change", async (e) => {
+  const selectedValue = e.target.value;
+
+  if (selectedValue === "switch-back-main") {
+    if (currentUser.accountType === 'sub' && currentUser.parentMain) {
+      try {
+        const parentRef = doc(db, USERS_COLLECTION, currentUser.parentMain);
+        const parentSnap = await getDoc(parentRef);
+
+        if (parentSnap.exists()) {
+          currentUser = applyDefaultUserFields(parentSnap.data());
+          localStorage.setItem("userId", currentUser.userId);
+          alert(`Switched back to main account: ${currentUser.username}`);
+          overlay.style.display = "none";
+          await refreshUI();
+        } else {
+          alert("Main account not found.");
+        }
+      } catch (error) {
+        console.error("Error switching back to main account:", error);
+        alert("An error occurred while switching back to the main account.");
+      }
+    } else {
+      alert("This account cannot switch back to a main account.");
+    }
+  } else if (selectedValue === "add-subaccount") {
+    // Trigger "Add Subaccount" flow
+    modalContent.innerHTML = `
+      <h1>Add Subaccount</h1>
+      <form id="addSubaccountForm">
+        <input type="text" id="subUsername" placeholder="Username" required />
+        <input type="password" id="subPassword" placeholder="Password" required />
+        <button type="submit">Add Subaccount</button>
+      </form>
+    `;
+    overlay.style.display = "flex";
+    
+    document.getElementById("addSubaccountForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = document.getElementById("subUsername").value.trim();
+      const password = document.getElementById("subPassword").value;
+      await addSubaccount(username, password);
+      overlay.style.display = "none";
+      switchBtn.click(); // Refresh dropdown
+      switchBtn.click();
+    });
+  } else if (selectedValue) {
+    // Handle switching to another subaccount
+    const userRef = doc(db, USERS_COLLECTION, selectedValue);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      currentUser = userSnap.data();
+      localStorage.setItem("userId", selectedValue);
+      alert(`Switched to ${currentUser.username}`);
+      overlay.style.display = "none";
+      await refreshUI();
+    }
+  }
+});
+
+      accountSelect.addEventListener("change", async (e) => {
+        const selectedUserId = e.target.value;
+          
+        const userRef = doc(db, USERS_COLLECTION, selectedUserId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          currentUser = userSnap.data();
+          localStorage.setItem("userId", selectedUserId);
+          alert(`Switched to ${currentUser.username}`);
+          overlay.style.display = "none";
+await refreshUI();            // Auto-refresh UI after account switch
+    await loadUserProfile();
+    await loadFleets();
+  } else {
+    ;
+  }
+});
+accountSelect.addEventListener("change", async (e) => {
+  const selectedValue = e.target.value;
+  
+  // If "Add Subaccount" is selected, initiate subaccount creation flow
+  if(selectedValue === "add-subaccount") {
+    // Reset selection to default state
+    accountSelect.selectedIndex = 0;
+    
+    // Display modal form for adding a subaccount
+    modalContent.innerHTML = `
+      <h1>Add Subaccount</h1>
+      <form id="addSubaccountForm">
+        <input type="text" id="subUsername" placeholder="Username" required />
+        <input type="password" id="subPassword" placeholder="Password" required />
+        <button type="submit">Add Subaccount</button>
+      </form>
+      <br/>
+  <a href="#" id="createAccountLink">Create new account</a>
+    `;
+    overlay.style.display = "flex";
+      
+    
+    document.getElementById("addSubaccountForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = document.getElementById("subUsername").value;
+      const password = document.getElementById("subPassword").value;
+      
+      await addSubaccount(username, password);
+      overlay.style.display = "none";
+      // Refresh switcher dropdown list to include the new subaccount
+      switchBtn.click();
+      switchBtn.click();
+    });
+  }// Existing code setting up modal content including the createAccountLink...
+modalContent.innerHTML = `
+  <h1>Add Subaccount</h1>
+  <form id="addSubaccountForm">
+    <input type="text" id="subUsername" placeholder="Username" required />
+    <input type="password" id="subPassword" placeholder="Password" required />
+    <button type="submit">Add Subaccount</button>
+  </form>
+  <br/>
+  <a href="#" id="createAccountLink">Create new account</a>
+`;
+overlay.style.display = "flex";
+
+// <-- Add Step 2 code here:
+document.getElementById("createAccountLink").addEventListener("click", (event) => {
+  event.preventDefault();
+  
+  // Replace modal content with registration form for new subaccount
+  modalContent.innerHTML = `
+    <h1>Create New Subaccount</h1>
+    <form id="createSubaccountForm">
+      <input type="text" id="newSubUsername" placeholder="Username" required />
+      <input type="password" id="newSubPassword" placeholder="Password" required />
+      <button type="submit">Create Subaccount</button>
+    </form>
+  `;
+  
+  // Add submission handler for the new subaccount form
+  document.getElementById("createSubaccountForm").addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    let username = document.getElementById("newSubUsername").value.trim();
+    let password = document.getElementById("newSubPassword").value;
+    
+    // Store current main account context
+    const mainAccount = currentUser;
+    
+    // Create a new user document as a subaccount
+    const newUserId = "user_" + Date.now();
+    const newUserData = {
+      ...defaultUserFields,
+      userId: newUserId,
+      username,
+      password,
+      accountType: 'sub',
+      parentMain: mainAccount.userId,
+      avatar: 'https://via.placeholder.com/60'
+    };
+    await setDoc(doc(db, USERS_COLLECTION, newUserId), newUserData);
+    
+    alert(`New subaccount "${username}" created under ${mainAccount.username}.`);
+    overlay.style.display = "none";
+    await refreshUI();      // Refresh the switcher dropdown to include the new subaccount
+    switchBtn.click();
+    switchBtn.click();
+  });
+});
+
+});
+
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        logoutUser();
+        overlay.style.display = "none";
+      });
+    }
+
+    // Overlay click to close modal
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+
+    // Fleet Management Functions
+async function fetchFleets() {
+  const querySnapshot = await getDocs(collection(db, FLEETS_COLLECTION));
+  const fleets = [];
+
+  for (const docSnap of querySnapshot.docs) {
+    const fleet = applyDefaultFleetFields(docSnap.data());
+
+    // If this fleet is a repost, fetch the original fleet's repost count
+    if (fleet.repostedFrom) {
+      const originalFleetRef = doc(db, FLEETS_COLLECTION, fleet.repostedFrom);
+      const originalFleetSnap = await getDoc(originalFleetRef);
+
+      if (originalFleetSnap.exists()) {
+        const originalFleet = originalFleetSnap.data();
+        fleet.reposts = originalFleet.reposts || [];
+           fleet.comments = originalFleet.comments || [];
+      }
+    }
+
+    // Calculate the activity score for sorting
+    const likesCount = fleet.likes?.length || 0;
+    const repostsCount = fleet.reposts?.length || 0;
+    const commentsCount = fleet.comments?.length || 0;
+
+    fleet.activityScore = likesCount * 1 + repostsCount * 2 + commentsCount * 3; // Example weighting
+    fleets.push({ id: docSnap.id, ...fleet });
+  }
+
+  // Sort fleets by last interacted timestamp (if exists), activity score, and recency
+  fleets.sort((a, b) =>
+    (b.lastInteracted || 0) - (a.lastInteracted || 0) || // Promote recently interacted fleets
+    b.activityScore - a.activityScore || 
+    b.createdAt - a.createdAt
+  );
+
+  return fleets;
+}
+
+
+    function renderFleet(fleet) {
+      const fleetItem = document.createElement("div");
+      fleetItem.className = "fleet-item";
+
+        if (fleet.repostedFrom) {
+  const repostInfo = document.createElement("div");
+  repostInfo.className = "repost-info";
+  repostInfo.textContent = `Reposted from ${fleet.repostedFrom}`;
+  fleetItem.appendChild(repostInfo);
+}
+// Interaction buttons container
+  const interactionContainer = document.createElement("div");
+  interactionContainer.className = "interaction-container";
+
+  // Like button
+  const likeBtn = document.createElement("button");
+  likeBtn.className = "interaction-button";
+  likeBtn.textContent = `❤️ ${fleet.likes?.length || 0}`;
+  likeBtn.addEventListener("click", async () => {
+    await toggleLike(fleet.id);
+    refreshUI(); // Refresh fleet data
+  });
+async function repostFleet(originalFleetId) {
+  if (!currentUser || !currentUser.userId) {
+    alert("Please log in to repost this fleet.");
+    return;
+  }
+
+  const originalFleetRef = doc(db, FLEETS_COLLECTION, originalFleetId);
+  const originalFleetSnap = await getDoc(originalFleetRef);
+
+  if (originalFleetSnap.exists()) {
+    const originalFleet = originalFleetSnap.data();
+
+    // Check if the user has already reposted this fleet
+    if (originalFleet.reposts && originalFleet.reposts.includes(currentUser.userId)) {
+      alert("You have already reposted this fleet.");
+      return;
+    }
+
+    // Create a new reposted fleet for the subaccount or main account
+    const repostedFleet = {
+      ...originalFleet,
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      createdAt: Date.now(),
+      repostedFrom: originalFleetId, // Reference to the original fleet
+    };
+
+    // Remove unnecessary fields for the reposted fleet
+    delete repostedFleet.fleetId;
+    delete repostedFleet.likes;
+    delete repostedFleet.reposts;
+    delete repostedFleet.comments;
+
+    // Save the reposted fleet to Firestore
+    await addDoc(collection(db, FLEETS_COLLECTION), repostedFleet);
+
+    // Update the original fleet's reposts array with the subaccount's ID
+    await updateDoc(originalFleetRef, {
+      reposts: Array.from(new Set([...(originalFleet.reposts || []), currentUser.userId])),
+    });
+
+    alert("Fleet reposted successfully!");
+  } else {
+    alert("Original fleet not found.");
+  }
+}
+
+
+
+  // Repost button
+const repostBtn = document.createElement("button");
+repostBtn.className = "interaction-button";
+
+// If this fleet is reposted, display the count from the original fleet
+const originalFleetId = fleet.repostedFrom || fleet.id;
+repostBtn.textContent = `🔁 ${fleet.reposts?.length || 0}`;
+
+// Add event listener for reposting
+repostBtn.addEventListener("click", async () => {
+  await repostFleet(originalFleetId);
+  loadFleets(); // Refresh fleet data to update repost counter
+});
+
+
+
+ // Comment button with count
+  const commentBtn = document.createElement("button");
+  commentBtn.className = "interaction-button";
+  commentBtn.textContent = `💬 ${fleet.comments?.length || 0}`;
+  commentBtn.addEventListener("click", () => {
+    openCommentPanel(fleet.id);
+  });
+
+  // Append buttons to interaction container
+  interactionContainer.appendChild(likeBtn);
+  interactionContainer.appendChild(repostBtn);
+  interactionContainer.appendChild(commentBtn);
+
+  // Append interaction container to fleet item
+  fleetItem.appendChild(interactionContainer);
+      // Add delete button if owner
+      if (fleet.userId === currentUser.userId) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.textContent = "Delete";
+        deleteBtn.addEventListener("click", async () => {
+          await deleteDoc(doc(db, FLEETS_COLLECTION, fleet.id));
+          loadFleets();
+        });
+        fleetItem.appendChild(deleteBtn);
+      }
+  // Determine avatar source: updated if current user's fleet, otherwise use stored avatar
+  const avatarSrc = (fleet.userId === currentUser.userId) 
+                      ? currentUser.avatar 
+                      : fleet.avatar;
+      // User info overlay
+      const userOverlay = document.createElement("div");
+      userOverlay.className = "user-info-overlay";
+      userOverlay.innerHTML = `<img src="${fleet.avatar}" alt="User Avatar">
+                               <span>${fleet.username}</span>`;
+      fleetItem.appendChild(userOverlay);
+
+      // Media content
+      if (fleet.type.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.src = fleet.data;
+        fleetItem.appendChild(img);
+      } else if (fleet.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = fleet.data;
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        fleetItem.appendChild(video);
+      }
+
+      // Text overlay
+      const textContent = document.createElement("div");
+      textContent.className = "text-content";
+      textContent.innerHTML = `<h2>${fleet.title}</h2><p>${fleet.description}</p>`;
+      fleetItem.appendChild(textContent);
+
+      fleetContainer.appendChild(fleetItem);
+    }
+
+ let cachedFleets = [];
+
+async function loadFleets() {
+ const spinner = document.getElementById("loadingSpinner");
+  fleetContainer.innerHTML = ""; // Clear previous fleets
+  spinner.style.display = "flex";
+
+  try {
+    const fleets = await fetchFleets();
+    spinner.style.display = "none";
+    fleets.forEach(renderFleet);
+  } catch (error) {
+    console.error("Error loading fleets:", error);
+    spinner.style.display = "none";
+  }
+}
+    async function loadUserProfile() {
+      let userId = localStorage.getItem("userId");
+      if (!userId) {
+        // Create new anonymous user if not exists
+        userId = "user_" + Date.now();
+        currentUser = {
+          userId,
+          avatar: "https://via.placeholder.com/60",
+          username: "Anonymous",
+          password: null
+        };
+        await setDoc(doc(db, USERS_COLLECTION, userId), currentUser);
+        localStorage.setItem("userId", userId);
+      } else {
+        const userRef = doc(db, USERS_COLLECTION, userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          currentUser = userSnap.data();
+        } else {
+          // If user not found in Firestore, create new
+          currentUser = {
+            userId: "user_" + Date.now(),
+            avatar: "https://via.placeholder.com/60",
+            username: "Anonymous",
+            password: null
+          };
+          await setDoc(doc(db, USERS_COLLECTION, currentUser.userId), currentUser);
+          localStorage.setItem("userId", currentUser.userId);
+        }
+      }
+      userAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="User Avatar">`;
+    }
+
+async function addFleetToFirestore(fleetData) {
+  const completeFleetData = { 
+    ...defaultFleetFields, 
+    ...fleetData,
+    userId: currentUser.userId,
+    username: currentUser.username,
+    avatar: currentUser.avatar,
+    createdAt: Date.now(),
+      lastInteracted: Date.now() // Initialize to createdAt
+  };
+
+  // Add to Firestore
+  const docRef = await addDoc(collection(db, FLEETS_COLLECTION), completeFleetData);
+
+  // Prepend to feed immediately
+  prependFleetToFeed({ ...completeFleetData, id: docRef.id });
+}
+
+async function compressFile(file, maxDimension = 1024) {
+  return new Promise((resolve, reject) => {
+    if (file.type.startsWith("image/")) {
+      // Handle image compression
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        img.src = event.target.result;
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          let { width, height } = img;
+
+          // Resize dimensions to fit within maxDimension
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert canvas to Blob
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: file.type,
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error("Canvas toBlob failed for image."));
+              }
+            },
+            file.type,
+            0.8 // Compression quality
+          );
+        };
+
+        img.onerror = () => reject(new Error("Failed to load the image."));
+      };
+
+      reader.onerror = () => reject(new Error("File reading failed."));
+      reader.readAsDataURL(file);
+    } else if (file.type.startsWith("video/")) {
+      // Handle video compression
+      const video = document.createElement("video");
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        video.src = event.target.result;
+
+        video.onloadedmetadata = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          let { videoWidth: width, videoHeight: height } = video;
+
+          // Resize dimensions to fit within maxDimension
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw the first frame of the video on the canvas
+          ctx.drawImage(video, 0, 0, width, height);
+
+          // Convert canvas to Blob
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: file.type,
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error("Canvas toBlob failed for video."));
+              }
+            },
+            file.type,
+            0.8 // Compression quality
+          );
+        };
+
+        video.onerror = () => reject(new Error("Failed to load the video."));
+      };
+
+      reader.onerror = () => reject(new Error("File reading failed."));
+      reader.readAsDataURL(file);
+    } else {
+      reject(new Error("Unsupported file type."));
+    }
+  });
+}
+
+
+
+    // Add Fleet Button Event
+  // Add Fleet Button Event
+addFleetBtn.addEventListener("click", () => {
+  // Render the upload form in the modal
+  modalContent.innerHTML = `
+    <h1>Upload Your Fleet</h1>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" accept="image/*,video/*" required />
+      <input type="text" id="titleInput" placeholder="Title" required />
+      <textarea id="descriptionInput" placeholder="Description"></textarea>
+      <button type="submit">Upload</button>
+    </form>
+  `;
+  overlay.style.display = "flex";
+
+  // Attach the submit event to the dynamically created form
+  document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const file = document.getElementById("fileInput").files[0];
+    const title = document.getElementById("titleInput").value.trim();
+    const description = document.getElementById("descriptionInput").value.trim();
+
+    if (!file) {
+      alert("Please select a file to upload.");
+      return;
+    }
+
+    try {
+      // Resize the image before uploading
+      const resizedFile = await compressFile(file);
+
+      // Read the resized file as a data URL
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const fleetData = {
+          title,
+          description,
+          type: resizedFile.type,
+          data: event.target.result, // Base64 string of the resized image
+        };
+
+        await addFleetToFirestore(fleetData);
+        await loadFleets();
+        overlay.style.display = "none";
+      };
+
+      reader.readAsDataURL(resizedFile);
+    } catch (error) {
+      console.error("Error during file upload:", error);
+      alert("Failed to resize and upload the image.");
+    }
+  });
+});
+
+      
+
+    // User avatar click opens account modal
+    userAvatar.addEventListener("click", handleUserAvatarClick);
+
+    window.onload = async () => {
+      await loadUserProfile();
+      await loadFleets();
+    };
+  </script>
+</body>
+</html>
