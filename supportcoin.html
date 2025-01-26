@@ -105,12 +105,12 @@
         <div id="close-button">&#10005;</div>
         <!-- Wallet Link -->
         <a href="#" id="wallet-link">Home</a>
-        <a href="#" onclick="openPaymentWindow()">Make a Payment</a>
+    
         <!-- Other links -->
         <a href="#" id="mining-link">Earn Coins</a>
         <a href="#" id="verify-link">Test Data</a>
 
-  
+  <a href="#" onclick="togglePaymentDiv()">Make a Payment</a> 
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
@@ -217,22 +217,19 @@
             switchPage('verify.html'); // Go to Transaction Verification
         });
     </script>
-
- <script>
+<script>
         // Function to switch iframe source based on selected menu item
         function switchPage(page) {
             document.getElementById('content-frame').src = page;
         }
 
-        // Function to open a new window for the payment page and keep it loaded
-        function openPaymentWindow() {
-            // Check if the window is already open
-            if (!window.paymentWindow || window.paymentWindow.closed) {
-                // Open a new window and load the payment page
-                window.paymentWindow = window.open('payments.html', 'paymentWindow', 'width=800,height=600,scrollbars=yes,resizable=yes');
+        // Function to toggle the visibility of the payment div
+        function togglePaymentDiv() {
+            var paymentDiv = document.getElementById('payment-div');
+            if (paymentDiv.style.display === "none") {
+                paymentDiv.style.display = "block"; // Show the div
             } else {
-                // If the window is already open, bring it into focus
-                window.paymentWindow.focus();
+                paymentDiv.style.display = "none"; // Hide the div
             }
         }
     </script>
