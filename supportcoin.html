@@ -188,10 +188,12 @@
     <div id="content">
         <iframe id="content-frame" src="index.html"></iframe>
     </div>
- <!-- Hidden Payment Div -->
+  <!-- Hidden Payment Div -->
     <div id="payment-div">
-        <iframe id="payment-iframe" src="payments.html"></iframe> <!-- Preload the page -->
-    </div>    <script type="module">
+        <button id="close-payment-btn" onclick="closePaymentDiv()">X</button>
+        <iframe id="payment-iframe" src="payment.html"></iframe> <!-- Preload the page -->
+    </div>
+      <script type="module">
         // Function to toggle the sliding menu
         function toggleMenu() {
             
@@ -235,20 +237,28 @@
             switchPage('verify.html'); // Go to Transaction Verification
         });
     </script>
-<script>
+ <script>
         // Function to switch iframe source based on selected menu item
         function switchPage(page) {
             document.getElementById('content-frame').src = page;
         }
 
-        // Function to toggle the visibility of the payment div
+        // Function to toggle the visibility of the payment div (slide up)
         function togglePaymentDiv() {
             var paymentDiv = document.getElementById('payment-div');
-            if (paymentDiv.style.display === "none") {
-                paymentDiv.style.display = "block"; // Show the div
-            } else {
-                paymentDiv.style.display = "none"; // Hide the div
-            }
+            paymentDiv.style.display = "block"; // Ensure it's visible
+            setTimeout(function() {
+                paymentDiv.style.bottom = "0"; // Slide up from the bottom
+            }, 10); // Small delay to ensure transition works smoothly
+        }
+
+        // Function to close the payment div (slide down)
+        function closePaymentDiv() {
+            var paymentDiv = document.getElementById('payment-div');
+            paymentDiv.style.bottom = "-100%"; // Slide down to hide
+            setTimeout(function() {
+                paymentDiv.style.display = "none"; // Hide the div completely after animation
+            }, 500); // Match the duration of the transition
         }
     </script>
 </body>
