@@ -687,7 +687,7 @@ const db = getFirestore(app);
 const defaultUserFields = {
   userId: '',                 // Unique identifier for the user
   username: 'Anonymous',      // Default username
-  avatar: 'https://via.placeholder.com/60', // Default avatar
+  avatar: 'placeholder.jpeg', // Default avatar
   password: null,             // Password (hashed if security is implemented)
   accountType: 'main',        // Either 'main' or 'sub'
   parentMain: null            // Reference to parent account (if sub)
@@ -748,7 +748,7 @@ function prependFleetToFeed(fleet) {
   // Render fleet content
   fleetItem.innerHTML = `
     <div class="user-info-overlay">
-      <img src="${fleet.avatar || "https://via.placeholder.com/60"}" alt="User Avatar">
+      <img src="${fleet.avatar || "placeholder.jpeg"}" alt="User Avatar">
       <span>${fleet.username}</span>
     </div>
     ${
@@ -1296,7 +1296,7 @@ document.getElementById("createAccountLink").addEventListener("click", (event) =
       password,
       accountType: 'sub',
       parentMain: mainAccount.userId,
-      avatar: 'https://via.placeholder.com/60'
+      avatar: 'placeholder.jpeg'
     };
     await setDoc(doc(db, USERS_COLLECTION, newUserId), newUserData);
     
@@ -1547,7 +1547,7 @@ async function loadFleets() {
           // If user not found in Firestore, create new
           currentUser = {
             userId: "user_" + Date.now(),
-            avatar: "https://via.placeholder.com/60",
+            avatar: "placeholder.jpeg",
             username: "Anonymous",
             password: null
           };
