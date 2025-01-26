@@ -86,7 +86,24 @@ iframe {
     </style>
 </head>
 <body>
-    <h1 style="visibility: hidden;">Mining Interface</h1>
+  
+    <!-- Main Content (Visible After Authentication) -->
+    <div id="main-content"">
+        
+<p><strong>Logged in as:</strong> <span id="user-email">user@example.com</span></p>
+<h2>Earn coins by returning every day</h2>
+        <button id="mine-button" class="arcade-button">MINE</button>
+        <iframe src="https://markenty.github.io/tap/particleaccelerator.html" style="border:0px #ffffff none; object-fit:contain; object-position:center;" name="myiFrame" scrolling="yes" frameborder="1" marginheight="0px" marginwidth="0px" height="600px" width="100%" allowfullscreen></iframe>        <div id="mine-progress"></div>        
+        <button id="logout-button">Logout</button>
+        <div id="summary" style="visibility: hidden;">
+                  <h2>Summary</h2>
+            <p><strong>Total Coin Supply:</strong> <span id="total-coins">21000000</span> coins</p>
+            <p><strong>Your Balance:</strong> <span id="user-balance">0</span> coins</p>
+            <p><strong>Remaining Supply:</strong> <span id="remaining-supply">21000000</span> coins</p>        </div>
+
+        
+    </div>
+  <h1 style="visibility: hidden;">Mining Interface</h1>
 
     <!-- Authentication Section -->
     <div id="auth-section">
@@ -104,23 +121,6 @@ iframe {
         <input type="password" id="reg-password" placeholder="Password" required><br>
         <button id="register-button">Register</button>
         <p>Already have an account? <a href="#" id="show-login">Login here</a></p>
-    </div>
-
-    <!-- Main Content (Visible After Authentication) -->
-    <div id="main-content"">
-        
-<p><strong>Logged in as:</strong> <span id="user-email">user@example.com</span></p>
-<h2>Earn coins by returning every day</h2>
-        <button id="mine-button" class="arcade-button">MINE</button>
-        <iframe src="https://markenty.github.io/tap/particleaccelerator.html" style="border:0px #ffffff none; object-fit:contain; object-position:center;" name="myiFrame" scrolling="yes" frameborder="1" marginheight="0px" marginwidth="0px" height="600px" width="100%" allowfullscreen></iframe>        <div id="mine-progress"></div>        
-        <button id="logout-button">Logout</button>
-        <div id="summary" style="visibility: hidden;">
-                  <h2>Summary</h2>
-            <p><strong>Total Coin Supply:</strong> <span id="total-coins">21000000</span> coins</p>
-            <p><strong>Your Balance:</strong> <span id="user-balance">0</span> coins</p>
-            <p><strong>Remaining Supply:</strong> <span id="remaining-supply">21000000</span> coins</p>        </div>
-
-        
     </div>
 
     <!-- Firebase SDKs -->
