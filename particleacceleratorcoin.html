@@ -1,0 +1,586 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blackhole Page</title>
+    <style>
+        html,
+        body {
+            padding: 0;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+            Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+            background-color: black;
+            overflow: hidden; /* Hide overflow for the dissolving flash effect */
+            height: 100%;
+        }
+
+        :root {
+            --photon: #00e8ff;
+            --accretion: #bc00f3;
+            --doppler: #5b3cf5;
+        }
+
+       /* Centered spinning effect for the entire container */
+@keyframes rotateAroundCenter {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+/* Screen flash effect */
+@keyframes screenFlash {
+    0% {
+        opacity: 0;
+        background-color: rgba(255, 255, 255, 0);
+    }
+    50% {
+        opacity: 1;
+        background-color: rgba(255, 255, 255, 0.8); /* Flash color */
+    }
+    100% {
+        opacity: 0;
+        background-color: rgba(255, 255, 255, 0);
+    }
+}
+
+.screen-flash {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999; /* Make sure it appears above everything */
+    animation: screenFlash 0.2s ease-out forwards;
+    pointer-events: none; /* Ensure it doesn't block clicks */
+}
+bh-container {
+    display: grid;
+    place-items: center;
+    height: 100vh;
+    grid-template-areas: "bh-shadow";
+    background: linear-gradient(-45deg, black, #20184a, black);
+    background-size: 400% 400%;
+    animation: gradient 10s ease infinite, rotateAroundCenter 10s linear infinite;
+    overflow: hidden;
+    position: relative;
+}
+ /* Progress bar container */
+        .progress-container {
+            position: fixed;
+            top: 60px; /* Adjust the position to be below the wallet display */
+            right: 20px;
+            width: 200px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            z-index: 1001;
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            height: 100%;
+            background-color: #28a745;
+            width: 0%; /* Start from 0% */
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        @keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        bh-photon-ring {
+            width: 35vw;
+            height: 35vw;
+            border-radius: 100%;
+            grid-area: bh-shadow;
+            background: var(--photon);
+            animation: photon 8s ease-in-out 0.5s infinite alternate;
+            z-index: 2;
+            box-shadow: inset 50px -10px 0px 4px black;
+            border: 60px double #5b3cf5;
+            box-sizing: content-box;
+            padding: 40px;
+            background-clip: padding-box;
+            position: absolute;
+            
+            transform: translate(0%, -0%);
+        }
+
+        @keyframes photon {
+            0% {
+                transform: rotate(0deg);
+                border-radius: 51% 50% 155% 52% / 51% 13% 88% 48%;
+                opacity: .2;
+            }
+            50% {
+                transform: rotate(-160deg);
+                border-radius: 63% 50% 55% 42% / 67% 27% 65% 47%;
+                opacity: .4;
+                filter: blur(50px);
+            }
+            100% {
+                transform: rotate(0deg);
+                border-radius: 51% 50% 55% 52% / 51% 43% 38% 48%;
+                opacity: .6;
+            }
+        }
+
+        bh-accretion {
+            width: 30vw;
+            height: 30vw;
+            background: var(--accretion);
+            grid-area: bh-shadow;
+            border-radius: 63% 50% 55% 42% / 67% 47% 65% 47%;
+            animation: accretion 8s ease-in-out 0.5s infinite alternate;
+            z-index: 3;
+        }
+
+        @keyframes accretion {
+            0% {
+                transform: scale(1) rotate(0deg);
+                border-radius: 51% 50% 55% 52% / 51% 43% 68% 48%;
+            }
+            50% {
+                transform: scale(1.4) rotate(100deg);
+                border-radius: 63% 50% 55% 42% / 67% 47% 65% 47%;
+                opacity: 0.7;
+                box-shadow: 0 0 10px 5px #bc00f3;
+            }
+            100% {
+                transform: scale(0.9) rotate(0deg);
+                border-radius: 51% 50% 55% 52% / 51% 43% 68% 48%;
+            }
+        }
+
+        bh-backdrop {
+            width: 100vw;
+            height: 100vh;
+            grid-area: bh-shadow;
+            backdrop-filter: blur(50px);
+            z-index: 4;
+        }
+
+        bh-shadow {
+            width: 20vw;
+            height: 20vw;
+            background: black;
+            display: flex;
+            border-radius: 100%;
+            grid-area: bh-shadow;
+            animation: shadow 2s ease-in-out 0.5s infinite alternate;
+            z-index: 5;
+            box-shadow: 2px 3px 10px 1px white, -20px 65px 160px 10px rgba(255, 255, 255, 0.7), -2px -3px 0px 1px rgba(255, 255, 255, 0.2), -4px 14px 30px 3px rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes shadow {
+            0% { transform: rotate(10deg) }
+            20% { transform: rotate(30deg) }
+            40% { transform: rotate(20deg) }
+            50% { transform: rotate(50deg) }
+            70% { transform: rotate(90deg) }
+            100% { transform: rotate(180deg) }
+        }
+
+        bh-audio {
+            position: fixed;
+            right: 40px;
+            bottom: 40px;
+            z-index: 10;
+            color: white;
+            cursor: pointer;
+        }
+
+        a {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            left: 40px;
+            bottom: 40px;
+            position: fixed;
+            z-index: 10;
+        }
+
+        bh-container {
+            animation-fill-mode: both;
+            transition-timing-function: ease-out;
+            animation-name: init;
+            animation-duration: 4s;
+            animation-iteration-count: 1;
+        }
+
+        @keyframes init {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        /* Glow effect for particles */
+        @keyframes glowEffect {
+            0% {
+                box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 15px rgba(255, 255, 255, 1);
+            }
+        }
+
+        /* Dissolving flash effect */
+        @keyframes flashEffect {
+            0% {
+                opacity: 1;
+                background-color: rgba(255, 255, 255, 0);
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0;
+                background-color: rgba(255, 255, 255, 0.7);
+                transform: scale(1.5);
+            }
+            100% {
+                opacity: 1;
+                background-color: rgba(255, 255, 255, 0);
+                transform: scale(1);
+            }
+        }
+
+        /* Flash effect on photon ring triggered by particle disappearance */
+        .flashPhoton {
+            animation: flashEffect 0.5s ease-out;
+            position: absolute;
+            
+            transform:  scale(1);
+        }
+
+        /* Counter for destroyed particles */
+        .counter {
+            position: fixed;
+            top:20px;
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 10;
+        }/* Light leak effect */
+@keyframes lightLeak {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(2);
+    }
+}
+
+.light-leak {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
+    border-radius: 50%;
+    animation: lightLeak 1s ease-out forwards;
+    pointer-events: none;
+}/* Horizon line */
+.horizon-line {
+    position: fixed;
+    bottom: 10px; /* Adjust this value for the vertical position of the horizon line */
+    left: 0;
+    width: 100%;
+    height: 2px; /* Thin line */
+    background: rgba(255, 255, 255, 0.3); /* Light gray to simulate the horizon */
+    z-index: 10;
+}
+
+/* Lens flare effect */
+@keyframes lensFlare {
+    0% {
+        opacity: 0;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1);
+    }
+}
+
+.lens-flare {
+    position: absolute;
+    bottom: 50%;
+    
+/* Align with the horizon line */
+     /* Center the flare on the horizon line */
+    width: 100vw; /* Adjust size as needed */
+    height: .5px; /* Adjust size for flare */
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+    border-radius: 50%;
+    animation: lensFlare .31s ease-out forwards;
+    pointer-events: none;
+
+z-index: 1;
+}
+/* Toast notification style */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 1000;
+}/* Display wallet balance in the top-right corner */
+.wallet-balance {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+    </style>
+</head>
+<body>
+    <bh-container>
+        <bh-doppler></bh-doppler>
+        <bh-photon-ring></bh-photon-ring>
+        <bh-accretion></bh-accretion>
+        <bh-backdrop></bh-backdrop>
+        <bh-shadow></bh-shadow>
+    </bh-container>
+    <audio src="https://deepspace.vercel.app/audio.mp3" loop></audio>
+    <div class="counter">Particles Accelerated: <span id="destroyedCounter">0</span></div>
+ <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+    </div> <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD2zSE_R3oQEOJST7BH0e5OAsDsPV0JzW8",
+            authDomain: "wallet-18aba.firebaseapp.com",
+            projectId: "wallet-18aba",
+            storageBucket: "wallet-18aba.appspot.com",
+            messagingSenderId: "926434300165",
+            appId: "1:926434300165:web:0b5d3ba8f32de4d8cbe76c",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let particleDestroyedCount = 0;
+const progressBar = document.getElementById('progressBar');
+        // Monitor authentication state
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("User is signed in:", user);
+                currentUser = user;  // Set the currentUser when authenticated
+                loadUserBalance();
+            } else {
+                console.log("User is signed out");
+                currentUser = null;
+            }
+        });
+
+        // Create the wallet balance display element
+        const walletDisplayElement = document.createElement('div');
+        walletDisplayElement.id = 'walletBalance';
+        walletDisplayElement.classList.add('wallet-balance');
+        document.body.appendChild(walletDisplayElement);
+
+        // Function to update the wallet balance displayed at the top-right
+        function updateBalanceDisplay(balance) {
+            const balanceDisplay = document.getElementById('walletBalance');
+            if (balanceDisplay) {
+                balanceDisplay.textContent = `Balance: ${balance} Coins`;
+            }
+        }
+
+        // Load user balance from Firestore
+        async function loadUserBalance() {
+            if (currentUser) {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data();
+                    updateBalanceDisplay(userData.balance || 0);
+                }
+            }
+        }
+
+        // Function to create a particle
+        function createParticle(event) {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+
+            // Create a new particle element
+            const particle = document.createElement('div');
+            particle.style.position = 'absolute';
+            particle.style.width = '10px';
+            particle.style.height = '10px';
+            particle.style.borderRadius = '50%';
+            particle.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+            particle.style.pointerEvents = 'none';
+            particle.style.left = `${Math.random() * screenWidth}px`;
+            particle.style.top = `${Math.random() * screenHeight}px`;
+
+            // Apply glow effect to particles
+            particle.style.animation = 'glowEffect 2s ease-in-out infinite alternate';
+            document.body.appendChild(particle);
+
+            const centerX = screenWidth / 2;
+            const centerY = screenHeight / 2;
+
+            let dx = centerX - parseFloat(particle.style.left);
+            let dy = centerY - parseFloat(particle.style.top);
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let speedX = Math.random() * 2 - 1;
+            let speedY = Math.random() * 2 - 1;
+            const gravityConstant = 500;
+            const maxSpeed = 30;
+            const decayRate = 0.01;
+            const blackHoleRadius = 50;
+
+            function moveParticle() {
+                dx = centerX - parseFloat(particle.style.left);
+                dy = centerY - parseFloat(particle.style.top);
+                distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Check if particle is inside the black hole's radius
+                if (distance < blackHoleRadius) {
+                    // Update the particle counter
+                    particle.remove();
+                    particleDestroyedCount++;
+                    const destroyedCounter = document.getElementById('destroyedCounter');
+                    destroyedCounter.textContent = particleDestroyedCount;
+
+                    // Update the progress bar
+                    updateProgressBar(particleDestroyedCount);
+
+
+                    // Every 100 particles destroyed, update the user's balance
+                    if (particleDestroyedCount % 100 === 0 && currentUser) {
+                        const userDocRef = doc(db, "users", currentUser.uid);
+                        getDoc(userDocRef).then(doc => {
+                            const userData = doc.data();
+                            const newBalance = userData.balance + 1; // Increment balance by 1 coin
+                            updateWalletBalance(currentUser.uid, newBalance);
+                            updateBalanceDisplay(newBalance); // Update the display after balance change
+                        });
+                    }
+
+                    const photonRing = document.querySelector('bh-photon-ring');
+                    photonRing.classList.add('flashPhoton');
+                    setTimeout(() => {
+                        photonRing.classList.remove('flashPhoton');
+                    }, 500);
+                    return;
+                }
+
+                // Apply gravitational force
+                let force = gravityConstant * (1 / (distance * distance));
+                let accelerationX = (dx / distance) * force;
+                let accelerationY = (dy / distance) * force;
+
+                // Update velocity based on acceleration
+                speedX += accelerationX;
+                speedY += accelerationY;
+
+                // Apply orbital decay
+                speedX *= (1 - decayRate);
+                speedY *= (1 - decayRate);
+
+                // Limit the maximum speed
+                if (Math.abs(speedX) > maxSpeed) speedX = maxSpeed * Math.sign(speedX);
+                if (Math.abs(speedY) > maxSpeed) speedY = maxSpeed * Math.sign(speedY);
+
+                // Move particle
+                let newX = parseFloat(particle.style.left) + speedX;
+                let newY = parseFloat(particle.style.top) + speedY;
+                newX = Math.max(0, Math.min(newX, screenWidth - 10));
+                newY = Math.max(0, Math.min(newY, screenHeight - 10));
+
+                // Update particle's position
+                particle.style.left = `${newX}px`;
+                particle.style.top = `${newY}px`;
+
+                if (distance > 1) {
+                    requestAnimationFrame(moveParticle);
+                }
+            }
+
+            moveParticle();
+        }
+
+        // Update wallet balance function
+        async function updateWalletBalance(uid, newBalance) {
+            const userDocRef = doc(db, "users", uid);
+            await updateDoc(userDocRef, { balance: newBalance });
+        }
+          // Update progress bar based on the particle count
+        function updateProgressBar(count) {
+            const percentage = (count % 100) / 100 * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        // Listen for touch events
+        document.addEventListener("touchstart", function(event) {
+            createParticle(event);
+        });
+    </script>
+</body>
+</html>
