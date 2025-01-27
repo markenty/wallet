@@ -462,6 +462,56 @@ async function fixCommentTimestamps() {
       }
       return comment;
     });
+async function createComment(fleetId, commentText) {
+  if (!commentText) return;
+
+  const fleetRef = doc(db, FLEETS_COLLECTION, fleetId);
+  const fleetSnap = await getDoc(fleetRef);
+
+  if (fleetSnap.exists()) {
+    const fleetData = fleetSnap.data();
+    const comments = fleetData.comments || [];
+
+    const newComment = {
+      userId: currentUser.userId,
+      username: currentUser.username,
+      avatar: currentUser.avatar,
+      comment: commentText,
+      timestamp: Date.now(),
+    };
+
+    comments.push(newComment);
+
+    // Update Firestore with the new comment
+    await updateDoc(fleetRef, { comments });
+
+    // Deduct 1 coin from the commenter's balance
+    const userRef = doc(db, "users", currentUser.userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+    const newBalance = userData.balance - 1;  // Deduct 1 coin for posting a comment
+
+    if (newBalance < 0) {
+      alert("Insufficient balance to post a comment.");
+      return;
+    }
+
+    await updateDoc(userRef, { balance: newBalance });
+
+    // If the comment is not on their own post, add 1 coin to the post creator
+    if (currentUser.userId !== fleetData.userId) {
+      const creatorRef = doc(db, "users", fleetData.userId);
+      const creatorSnap = await getDoc(creatorRef);
+      const creatorData = creatorSnap.data();
+      const newCreatorBalance = creatorData.balance + 1;  // Add 1 coin to the post creator
+
+      await updateDoc(creatorRef, { balance: newCreatorBalance });
+    }
+
+    console.log("Comment created and coins updated.");
+    loadComments(fleetId); // Refresh comments
+  }
+}
 
     // Update Firestore with fixed comments
     await updateDoc(doc(db, FLEETS_COLLECTION, docSnap.id), { comments: updatedComments });
@@ -565,6 +615,25 @@ async function deleteComment(fleetId, commentIndex) {
 
     // Update Firestore
     await updateDoc(fleetRef, { comments });
+
+    // Revert 1 coin from the commenter's balance
+    const userRef = doc(db, "users", currentUser.userId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+    const newBalance = userData.balance + 1;  // Revert 1 coin for deleting the comment
+
+    await updateDoc(userRef, { balance: newBalance });
+
+    // If the comment was not on their own post, revert 1 coin from the post creator
+    if (commentToDelete.userId !== fleetData.userId) {
+      const creatorRef = doc(db, "users", fleetData.userId);
+      const creatorSnap = await getDoc(creatorRef);
+      const creatorData = creatorSnap.data();
+      const newCreatorBalance = creatorData.balance - 1;  // Revert 1 coin from the post creator
+
+      await updateDoc(creatorRef, { balance: newCreatorBalance });
+    }
+
     console.log("Comment deleted successfully.");
     loadComments(fleetId); // Refresh comments
   } catch (error) {
