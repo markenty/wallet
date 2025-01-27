@@ -18,7 +18,9 @@
       height: 100vh;
       width: 100%;
       overflow: hidden;
-     background: none;      font-family: Arial, sans-serif;
+       background: none;
+      padding: 5px;
+      font-family: Arial, sans-serif;
     }
 
     .folder {
@@ -76,8 +78,20 @@
       animation: slideUp 0.5s ease forwards;
     }
 
+    .fly-away {
+      animation: flyAway 0.8s ease forwards;
+    }
+
     .swell-up {
       animation: swell 0.3s ease;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: rgba(0, 0, 0, 0.8);
+      animation: floatAndDissolve 1s ease forwards;
     }
 
     @keyframes slideUp {
@@ -91,12 +105,34 @@
       }
     }
 
+    @keyframes flyAway {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(200px, -200px) rotate(45deg);
+      }
+    }
+
     @keyframes swell {
       0%, 100% {
         transform: scale(1);
       }
       50% {
         transform: scale(1.2);
+      }
+    }
+
+    @keyframes floatAndDissolve {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(10px, -10px);
       }
     }
   </style>
@@ -114,6 +150,20 @@
     const receivingFolder = document.getElementById('receiving-folder');
     const emojis = ['📀', '💾', '📂', '🗄️', '🖴'];
     const deviceIcons = ['🖥️', '📱', '💽', '🖨️', '💻'];
+
+    function createParticles(x, y) {
+      for (let i = 0; i < 10; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particle.style.left = `${x + Math.random() * 10 - 5}px`;
+        particle.style.top = `${y + Math.random() * 10 - 5}px`;
+        document.body.appendChild(particle);
+
+        setTimeout(() => {
+          document.body.removeChild(particle);
+        }, 1000);
+      }
+    }
 
     shootingFolder.addEventListener('click', () => {
       const emoji = document.createElement('div');
@@ -139,14 +189,15 @@
 
       setTimeout(() => {
         receivingFolder.classList.add('receiving');
+        createParticles(receiveRect.left + receiveRect.width / 2, receiveRect.top + receiveRect.height / 2);
         setTimeout(() => {
           receivingFolder.classList.add('swell-up');
           setTimeout(() => {
-            receivingFolder.classList.add('slide-up');
+            receivingFolder.classList.add('fly-away');
             setTimeout(() => {
-              receivingFolder.classList.remove('slide-up', 'receiving', 'swell-up');
+              receivingFolder.classList.remove('fly-away', 'receiving', 'swell-up');
               receivingFolder.querySelector('span').textContent = deviceIcons[Math.floor(Math.random() * deviceIcons.length)];
-            }, 500);
+            }, 800);
           }, 300);
         }, 300);
         document.body.removeChild(emoji);
