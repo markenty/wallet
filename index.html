@@ -106,7 +106,10 @@
         /* Modal Headings */
         .modal h2 {
             color: #00d1b2; /* Bright teal */
-            margin-bottom: 15px;
+            margin-bottom: 15px;@font-face{
+ font-family:'digital-clock-font';
+ src: url('put_the_location_to_your_font.ttf or .otf');
+}
         }
 
         /* Modal Input Fields */
@@ -178,6 +181,7 @@
     <div id="wallet-div">
          <iframe src="foldergame.html" style="border:0px #ffffff none;padding:2px;background: none; name="minigame" scrolling="yes" frameborder="1" marginheight="0px" marginwidth="0px" height="50px" width="100%" allowfullscreen></iframe>
         <p><strong>Balance:</strong> <span id="balance">0</span> coins</p></h1>
+<span id="remaining-supply">0</span> coins</p>
          <p><strong>Email:</strong> <span id="user-email">N/A</span></p>
         <p><strong>User ID:</strong> <span id="user-id">N/A</span></p>
        
@@ -190,8 +194,8 @@
         </div>
         
         <h3>Transaction Log</h3>
-        <div id="transactions-log"></div> <h3>Remaining Supply</h3>
-        <p><strong>Remaining Supply:</strong> <span id="remaining-supply">0</span> coins</p>
+        <div id="transactions-log"></div> 
+        <p><strong>Remaining Supply:</strong> 
         <button id="logout-btn">Logout</button>
     </div>
 
