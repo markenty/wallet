@@ -89,8 +89,15 @@ bh-container {
             border-radius: 10px;
             transition: width 0.3s ease;
         }
-        
-        @keyframes gradient {
+        .counter {
+            position: fixed;
+            top: 20px; /* Adjust position to be just above the balance meter */
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1001;
+        }        @keyframes gradient {
     0% {
         background-position: 0% 50%;
     }
