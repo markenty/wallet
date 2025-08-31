@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Map + Timeline To‑Do Prototype</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-o9N1j7kGStbqRGPjyQ8ZbG4V1b9n7N8L0p+F2Y5u0u8="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+    a { color: var(--accent2); text-decoration: none; }
+    header {
+      display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+      padding: 10px 14px; background: #0c0f14; border-bottom: 1px solid #1c2333; position: sticky; top: 0; z-index: 50;
+    }
+    header .title { font-weight: 700; letter-spacing:.2px; }
+    header .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .btn {
+      background: #1a2131; color: var(--text); border: 1px solid #24304a; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color:#324166; }
+    .btn.primary { background: linear-gradient(180deg, #1e2b45, #172238); border-color: #2d3a58; }
+    .btn.accent { background: linear-gradient(180deg, #2a3f36, #1e2f29); border-color:#2f574a; color:#d6fff3; }
+    .btn.danger { background: #2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+    .toggle { display:inline-flex; align-items:center; gap:6px; }
+    input, select, textarea { background:#10141d; color:var(--text); border:1px solid #232c44; border-radius: 8px; padding:8px; }
+    input[type="date"], input[type="time"] { padding: 6px 8px; }
+    .app {
+      height: calc(100% - 52px);
+      display: grid; grid-template-columns: 1.2fr .9fr; gap: 10px; padding: 10px;
+    }
+    #map { width:100%; height:100%; border-radius: 12px; border:1px solid #1c2333; }
+    .panel {
+      height:100%; border:1px solid #1c2333; background: var(--panel); border-radius: 12px; display:flex; flex-direction: column; overflow: hidden;
+    }
+    .panel header { position: static; border: none; background: transparent; padding: 10px 12px; }
+    .timeline {
+      overflow-y: auto; padding: 10px; display:flex; flex-direction: column; gap: 10px;
+    }
+    .day-group { margin-top: 8px; }
+    .day-group h4 { margin: 8px 0 6px; color:#c0c8d8; font-weight:600;}
+    .item {
+      display:grid; grid-template-columns: 72px 1fr; gap:10px; padding: 10px; border:1px solid #223052; border-radius: 10px; background:#111722; transition:.15s ease;
+    }
+    .item:hover { border-color:#2d3f70; transform: translateY(-1px); }
+    .time { color:#b6c0d4; font-weight:600; }
+    .title { font-weight:700; }
+    .meta { color: var(--muted); font-size:12.5px; margin-top:4px; }
+    .empty { opacity: .8; padding: 24px; text-align: center; color: var(--muted); }
+    .legend { display:flex; gap:12px; align-items:center; color:#b9c6d8; }
+    .dot { width: 10px; height:10px; border-radius:50%; display:inline-block; }
+    .dot.route { background: var(--accent2); }
+    .dot.task { background: var(--accent); }
+    .spacer { flex:1; }
+    .footer { border-top:1px solid #1c2333; padding: 8px 10px; color: #9aa4b2; font-size: 12px; display:flex; align-items:center; gap:12px;}
+    .kbd { padding: 1px 6px; background:#0c0f14; border:1px solid #1b2233; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color:#c6d3e6; }
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(2,6,12,.6); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal { width: min(680px, 92vw); background: #0f141e; border:1px solid #27314b; border-radius: 12px; padding: 14px; }
+    .modal h3 { margin: 4px 0 10px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .row { display:flex; gap:10px; }
+    .right { text-align:right; }
+    .muted { color:var(--muted); }
+    .tiny { font-size: 11.5px; }
+    .warning { color:#ffd0d0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">🗺️ Map + Timeline To‑Do</div>
+    <div class="controls">
+      <input type="date" id="dateFilter" />
+      <button class="btn primary" id="btnAdd">Add Task</button>
+      <label class="toggle"><input type="checkbox" id="toggleRoute" checked/> Show route</label>
+      <button class="btn" id="btnExportICS" title="Export tasks on selected date to .ics file">Export .ics</button>
+      <button class="btn" id="btnExportJSON">Export JSON</button>
+      <button class="btn danger" id="btnReset">Reset Demo Data</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <div id="map"></div>
+    <section class="panel">
+      <header style="display:flex;gap:12px;align-items:center;">
+        <div class="legend"><span class="dot task"></span>Task <span class="dot route"></span>Route</div>
+        <div class="spacer"></div>
+        <input type="search" id="search" placeholder="Search tasks…" />
+      </header>
+      <div id="timeline" class="timeline"></div>
+      <div class="footer">
+        <span class="tiny">Tip: <span class="kbd">click</span> a task to fly the map • <span class="kbd">⌘/Ctrl</span> + <span class="kbd">K</span> to add • Click the map while “Pick on map” is active to set coordinates.</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="backdrop">
+    <div class="modal">
+      <h3 id="modalTitle">Add Task</h3>
+      <div class="grid">
+        <label>Title <input id="f_title" placeholder="Task title" /></label>
+        <label>Date <input id="f_date" type="date" /></label>
+        <label>Start <input id="f_start" type="time" /></label>
+        <label>End <input id="f_end" type="time" /></label>
+        <label>Latitude <input id="f_lat" placeholder="e.g., 47.05" /></label>
+        <label>Longitude <input id="f_lng" placeholder="-122.90" /></label>
+      </div>
+      <label style="display:block;margin-top:8px;">Notes <textarea id="f_notes" rows="3" placeholder="Optional details"></textarea></label>
+      <div class="row" style="margin-top:10px; align-items:center; justify-content: space-between;">
+        <div class="tiny muted">No geocoder is used—click “Pick on map” then click the map to set lat/lng.</div>
+        <div class="row">
+          <button class="btn" id="btnPick">Pick on map</button>
+          <button class="btn" id="btnCancel">Cancel</button>
+          <button class="btn accent" id="btnSave">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin="">
+  </script>
+  <script>
+    // ---------- Utilities ----------
+    const $ = sel => document.querySelector(sel);
+    const fmtTime = v => v ? v : "";
+    const pad2 = n => (n<10?"0":"")+n;
+    const todayStr = () => new Date().toISOString().slice(0,10);
+    const uid = () => Math.random().toString(36).slice(2, 9);
+    const toMinutes = t => { if(!t) return null; const [h,m] = t.split(':').map(Number); return h*60+m; };
+    const byTime = (a,b) => (toMinutes(a.start)-toMinutes(b.start)) || a.title.localeCompare(b.title);
+    const inDate = (t, d) => t.date === d;
+    const download = (name, content, type="application/octet-stream") => {
+      const blob = new Blob([content], {type}); const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), {href:url, download: name}); document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 200);
+    };
+    function icsDate(dateStr, timeStr) {
+      // Returns basic local (floating) time in ICS format YYYYMMDDTHHMMSS
+      const dt = new Date(dateStr + "T" + (timeStr || "09:00") + ":00");
+      return dt.getFullYear().toString()
+        + pad2(dt.getMonth()+1) + pad2(dt.getDate())
+        + "T" + pad2(dt.getHours()) + pad2(dt.getMinutes()) + "00";
+    }
+
+    // ---------- Data ----------
+    const STORAGE_KEY = "mapTimelineTasks_v1";
+    const demo = [
+      { id: uid(), title:"Hardware store", date: todayStr(), start:"09:00", end:"09:30", lat:47.0479, lng:-122.8991, notes:"Pick up screws & anchors (order #4872)" },
+      { id: uid(), title:"Client site walk‑through", date: todayStr(), start:"10:15", end:"11:15", lat:47.0417, lng:-122.8930, notes:"Check south entrance; record measurements" },
+      { id: uid(), title:"Coffee with Julien", date: todayStr(), start:"12:00", end:"12:45", lat:47.0476, lng:-122.9035, notes:"Discuss drone footage pulls" },
+      { id: uid(), title:"Supply pickup", date: todayStr(), start:"13:30", end:"14:00", lat:47.0580, lng:-122.9260, notes:"Batteries, gaffer tape, SD cards" },
+      { id: uid(), title:"Studio edit block", date: todayStr(), start:"15:00", end:"17:00", lat:47.0437, lng:-122.8949, notes:"Rough cut Scene 03" }
+    ];
+
+    const store = {
+      get() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || demo; } catch { return demo; } },
+      set(v) { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); }
+    };
+
+    let tasks = store.get();
+    let markers = new Map();
+    let routeLine = null;
+    let currentEditId = null;
+    let picking = false;
+
+    // ---------- Map ----------
+    const map = L.map('map', { zoomControl: true });
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    function fitToTasks(list) {
+      if (!list.length) { map.setView([47.0479,-122.8991], 13); return; }
+      const group = L.featureGroup(list.map(t => markers.get(t.id))).getBounds();
+      map.fitBounds(group.pad(0.25));
+    }
+
+    function drawRoute(list) {
+      if (routeLine) { routeLine.remove(); routeLine = null; }
+      if (!$('#toggleRoute').checked || list.length < 2) return;
+      const pts = list.map(t => [t.lat, t.lng]);
+      routeLine = L.polyline(pts, { color: '#7aa2ff', weight: 3, opacity: 0.9, dashArray: '4,4' }).addTo(map);
+    }
+
+    function upsertMarker(task) {
+      let m = markers.get(task.id);
+      const icon = L.divIcon({ className: 'custom-pin', html: `<div style="background:#67d5b5;border:2px solid #3a7b6a;width:18px;height:18px;border-radius:50%;box-shadow:0 0 0 2px #0f1115;transform:translate(-50%,-50%);"></div>` });
+      if (!m) {
+        m = L.marker([task.lat, task.lng], { icon }).addTo(map);
+        m.on('click', () => {
+          const el = document.querySelector(\`.item[data-id="\${task.id}"]\`);
+          if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('glow'); setTimeout(()=>el.classList.remove('glow'), 800); }
+        });
+        markers.set(task.id, m);
+      } else {
+        m.setLatLng([task.lat, task.lng]);
+      }
+      const popup = \`<b>\${task.title}</b><div class="muted tiny">\${task.date} • \${fmtTime(task.start)}–\${fmtTime(task.end)}</div><div style="margin-top:4px">\${(task.notes||"")}</div>\`;
+      m.bindPopup(popup);
+      return m;
+    }
+
+    // highlight CSS for timeline items
+    const style = document.createElement('style');
+    style.textContent = ".glow{box-shadow:0 0 0 2px #67d5b5aa; }";
+    document.head.appendChild(style);
+
+    // ---------- Render ----------
+    function render() {
+      const date = $('#dateFilter').value || todayStr();
+      const query = ($('#search').value||"").trim().toLowerCase();
+      const filtered = tasks.filter(t => inDate(t, date) && (!query || (t.title + ' ' + (t.notes||'')).toLowerCase().includes(query))).sort(byTime);
+
+      // Clear all markers first
+      markers.forEach(m => m.remove());
+      markers.clear();
+
+      // Timeline
+      const tl = $('#timeline');
+      tl.innerHTML = '';
+      if (!filtered.length) {
+        tl.innerHTML = '<div class="empty">No tasks on this date.</div>';
+      } else {
+        filtered.forEach(t => {
+          // create marker for each
+          upsertMarker(t);
+          const item = document.createElement('div');
+          item.className = 'item';
+          item.dataset.id = t.id;
+          item.innerHTML = \`
+            <div class="time">\${fmtTime(t.start)}<div class="muted tiny">\${fmtTime(t.end)}</div></div>
+            <div>
+              <div class="title">\${t.title}</div>
+              <div class="meta">Lat \${t.lat.toFixed(5)}, Lng \${t.lng.toFixed(5)}</div>
+              \${t.notes ? \`<div class="meta">\${t.notes}</div>\` : ''}
+              <div class="row" style="margin-top:6px; gap:6px;">
+                <button class="btn tiny" data-act="fly">Fly to</button>
+                <button class="btn tiny" data-act="edit">Edit</button>
+                <button class="btn tiny danger" data-act="del">Delete</button>
+              </div>
+            </div>\`;
+          tl.appendChild(item);
+        });
+      }
+
+      // Draw route and fit map
+      drawRoute(filtered);
+      fitToTasks(filtered);
+    }
+
+    // ---------- CRUD ----------
+    function openModal(editId = null) {
+      currentEditId = editId;
+      $('#modalTitle').textContent = editId ? 'Edit Task' : 'Add Task';
+      const date = $('#dateFilter').value || todayStr();
+      const t = editId ? tasks.find(x => x.id === editId) : { title:'', date, start:'09:00', end:'10:00', lat:'', lng:'', notes:'' };
+      $('#f_title').value = t.title || '';
+      $('#f_date').value = t.date || date;
+      $('#f_start').value = t.start || '09:00';
+      $('#f_end').value = t.end || '10:00';
+      $('#f_lat').value = t.lat || '';
+      $('#f_lng').value = t.lng || '';
+      $('#f_notes').value = t.notes || '';
+      $('#backdrop').style.display = 'flex';
+    }
+    function closeModal(){ $('#backdrop').style.display = 'none'; picking = false; $('#btnPick').classList.remove('accent'); }
+
+    function saveFromModal() {
+      const title = $('#f_title').value.trim();
+      const date = $('#f_date').value;
+      const start = $('#f_start').value;
+      const end = $('#f_end').value;
+      const lat = parseFloat($('#f_lat').value);
+      const lng = parseFloat($('#f_lng').value);
+      const notes = $('#f_notes').value.trim();
+      if (!title || !date || isNaN(lat) || isNaN(lng)) {
+        alert('Title, date, and valid coordinates are required.');
+        return;
+      }
+      if (currentEditId) {
+        const idx = tasks.findIndex(t => t.id === currentEditId);
+        tasks[idx] = { ...tasks[idx], title, date, start, end, lat, lng, notes };
+      } else {
+        tasks.push({ id: uid(), title, date, start, end, lat, lng, notes });
+      }
+      store.set(tasks);
+      closeModal();
+      render();
+    }
+
+    // ---------- Exports ----------
+    function exportJSON() {
+      const date = $('#dateFilter').value || todayStr();
+      const list = tasks.filter(t => t.date === date).sort(byTime);
+      download('map-timeline-' + date + '.json', JSON.stringify(list, null, 2), 'application/json');
+    }
+
+    function exportICS() {
+      const date = $('#dateFilter').value || todayStr();
+      const list = tasks.filter(t => t.date === date).sort(byTime);
+      const lines = [
+        'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//MapTimeline//Prototype//EN'
+      ];
+      list.forEach(t => {
+        lines.push('BEGIN:VEVENT');
+        lines.push('UID:' + t.id + '@maptimeline.local');
+        lines.push('DTSTAMP:' + icsDate(t.date, t.start));
+        lines.push('DTSTART:' + icsDate(t.date, t.start));
+        lines.push('DTEND:' + icsDate(t.date, t.end || t.start));
+        lines.push('SUMMARY:' + t.title.replace(/[,;]/g,' '));
+        const loc = \`Lat \${t.lat}, Lng \${t.lng}\`;
+        lines.push('LOCATION:' + loc.replace(/[,;]/g,' '));
+        if (t.notes) lines.push('DESCRIPTION:' + t.notes.replace(/\n/g,'\\n').replace(/[,;]/g,' '));
+        lines.push('END:VEVENT');
+      });
+      lines.push('END:VCALENDAR');
+      download('map-timeline-' + date + '.ics', lines.join('\\r\\n'), 'text/calendar');
+    }
+
+    // ---------- Event wiring ----------
+    $('#btnAdd').addEventListener('click', () => openModal());
+    $('#btnCancel').addEventListener('click', closeModal);
+    $('#btnSave').addEventListener('click', saveFromModal);
+    $('#btnExportJSON').addEventListener('click', exportJSON);
+    $('#btnExportICS').addEventListener('click', exportICS);
+    $('#toggleRoute').addEventListener('change', render);
+    $('#dateFilter').addEventListener('change', render);
+    $('#search').addEventListener('input', render);
+    $('#btnReset').addEventListener('click', () => {
+      if (confirm('Replace current data with demo tasks for today?')) {
+        tasks = demo;
+        store.set(tasks);
+        $('#dateFilter').value = todayStr();
+        render();
+      }
+    });
+
+    // keyboard shortcut
+    document.addEventListener('keydown', (e)=>{
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='k') { e.preventDefault(); openModal(); }
+    });
+
+    // Timeline click delegation
+    $('#timeline').addEventListener('click', (e) => {
+      const item = e.target.closest('.item'); if (!item) return;
+      const id = item.dataset.id;
+      const act = e.target.dataset.act;
+      const t = tasks.find(x => x.id === id);
+      if (act === 'fly') {
+        map.flyTo([t.lat, t.lng], 15);
+        const m = markers.get(id); if (m) m.openPopup();
+      } else if (act === 'edit') {
+        openModal(id);
+      } else if (act === 'del') {
+        if (confirm('Delete task "'+t.title+'"?')) {
+          tasks = tasks.filter(x => x.id !== id);
+          store.set(tasks); render();
+        }
+      }
+    });
+
+    // Map picking mode
+    $('#btnPick').addEventListener('click', () => {
+      picking = !picking;
+      $('#btnPick').classList.toggle('accent', picking);
+    });
+    map.on('click', (e) => {
+      if (!picking) return;
+      $('#f_lat').value = e.latlng.lat.toFixed(6);
+      $('#f_lng').value = e.latlng.lng.toFixed(6);
+      picking = false;
+      $('#btnPick').classList.remove('accent');
+    });
+
+    // Init
+    (function init(){
+      // default date = today
+      $('#dateFilter').value = todayStr();
+      render();
+    })();
+  </script>
+</body>
+</html>
