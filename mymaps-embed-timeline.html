@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Maps + Timeline (Embed) — Prototype</title>
+<style>
+  :root { --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b; }
+  *{ box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+  header { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:10px 12px; background:#0c0f14; border-bottom:1px solid #1c2333; position:sticky; top:0; z-index:10; }
+  .title { font-weight:700; letter-spacing:.2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input, button { font:inherit; }
+  input, textarea { background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:10px; }
+  .btn { background:#1a2131; color:var(--text); border:1px solid #24304a; padding:10px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .btn:hover { transform:translateY(-1px); border-color:#324166; }
+  .btn.accent { background: linear-gradient(180deg, #2a3f36, #1e2f29); border-color:#2f574a; color:#d6fff3; }
+  .btn.danger { background:#2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+  .app { height: calc(100% - 56px); display:grid; grid-template-columns: 1.3fr .9fr; gap:10px; padding:10px; }
+  .left { display:flex; flex-direction:column; gap:8px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tiny { font-size:12px; color:var(--muted); }
+  #mapFrame { width:100%; height:100%; min-height:480px; border:1px solid #1c2333; border-radius:12px; background:#0b0e14; }
+  .panel { height:100%; border:1px solid #1c2333; background:var(--panel); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; }
+  .panel header { display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid #1c2333; }
+  .timeline { overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px; }
+  .item { display:grid; grid-template-columns: 84px 1fr; gap:10px; padding:12px; border:1px solid #223052; border-radius:12px; background:#111722; }
+  .time { font-weight:700; color:#cdd6e5; }
+  .meta { color:var(--muted); font-size:12.5px; margin-top:4px; }
+  .footer { border-top:1px solid #1c2333; padding:8px 10px; color:#9aa4b2; font-size:12px; display:flex; align-items:center; gap:8px; }
+  .kbd { padding:1px 6px; background:#0c0f14; border:1px solid #1b2233; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#c6d3e6; }
+  @media (max-width: 980px) { .app { grid-template-columns: 1fr; grid-template-rows: 56vh 1fr; } #mapFrame { height:56vh; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="title">🗺️ My Maps + Timeline <span class="tiny">Embed Prototype</span></div>
+  <div class="controls">
+    <input type="date" id="dateFilter">
+    <input type="search" id="search" placeholder="Search…">
+    <button class="btn" id="btnExportICS">Export .ics</button>
+    <button class="btn" id="btnExportJSON">Export JSON</button>
+    <button class="btn danger" id="btnClear">Clear</button>
+  </div>
+</header>
+
+<main class="app">
+  <section class="left">
+    <div class="row">
+      <input id="mymapsUrl" placeholder="Paste Google My Maps embed URL (https://www.google.com/maps/d/embed?mid=…)" style="flex:1;">
+      <button class="btn accent" id="btnSetMap">Set Map</button>
+      <span class="tiny">Tip: In My Maps → Share → Embed on my site → copy the iframe URL.</span>
+    </div>
+    <iframe id="mapFrame" src="" allowfullscreen></iframe>
+  </section>
+  <section class="panel">
+    <header>
+      <input id="kmlUrl" placeholder="KML URL (optional; My Maps: https://www.google.com/maps/d/kml?mid=…)" style="flex:1;">
+      <button class="btn" id="btnFetchKML">Fetch KML</button>
+      <input type="file" id="fileInput" accept=".kml,.csv" style="display:none;">
+      <button class="btn" id="btnImport">Import KML/CSV</button>
+    </header>
+    <div id="timeline" class="timeline"></div>
+    <div class="footer">
+      <span class="tiny">How it works: The map on the left is your live My Map. This panel reads your tasks from a KML/CSV export (file or URL) and shows a sortable timeline.</span>
+    </div>
+  </section>
+</main>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const KEY_ITEMS = 'mymaps_embed_items_v1';
+  const KEY_URL = 'mymaps_embed_url';
+  const KEY_KML = 'mymaps_embed_kml';
+
+  let items = []; // {title, date, start, end, lat, lng, notes}
+
+  const pad2 = n => (n<10?'0':'')+n;
+  const todayStr = () => new Date().toISOString().slice(0,10);
+  const toMin = t => t ? t.split(':').map(Number).reduce((h,m)=>h*60+m) : 0;
+  const byTime = (a,b) => (a.date||'').localeCompare(b.date||'') || toMin(a.start)-toMin(b.start) || a.title.localeCompare(b.title);
+
+  function save(){ localStorage.setItem(KEY_ITEMS, JSON.stringify(items)); }
+  function load(){
+    try{ items = JSON.parse(localStorage.getItem(KEY_ITEMS)) || []; }
+    catch{ items = []; }
+  }
+
+  function parseTimeFromText(text){
+    // looks for HH:MM–HH:MM or H:MM-H:MM
+    const m = (text||'').match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
+    if(!m) return {start:'', end:''};
+    const sh = pad2(+m[1]); const sm = pad2(+m[2]);
+    const eh = pad2(+m[3]); const em = pad2(+m[4]);
+    return { start: sh+':'+sm, end: eh+':'+em };
+  }
+  function parseDateFromText(text){
+    const m = (text||'').match(/(\d{4})-(\d{2})-(\d{2})/);
+    return m ? m[0] : todayStr();
+  }
+
+  function render(){
+    const date = $('#dateFilter').value || todayStr();
+    const q = ($('#search').value||'').toLowerCase();
+    const filtered = items.filter(it => (it.date||todayStr())===date && (!q || (it.title+' '+(it.notes||'')).toLowerCase().includes(q))).sort(byTime);
+
+    const tl = $('#timeline'); tl.innerHTML = '';
+    if(!filtered.length){
+      tl.innerHTML = '<div class="item"><div class="time"></div><div>No items for this date. Import KML/CSV or fetch the KML URL.</div></div>';
+      return;
+    }
+    filtered.forEach(it => {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `
+        <div class="time">${it.start||''}<div class="tiny">${it.end||''}</div></div>
+        <div>
+          <div style="font-weight:700">${it.title||'(untitled)'}</div>
+          <div class="meta">Lat ${(+it.lat).toFixed(5)}, Lng ${(+it.lng).toFixed(5)}</div>
+          ${it.notes ? `<div class="meta">${it.notes}</div>` : ''}
+        </div>`;
+      tl.appendChild(el);
+    });
+  }
+
+  function icsDate(d,t){ const dt = new Date((d||todayStr()) + 'T' + (t||'09:00') + ':00'); return dt.getFullYear()+pad2(dt.getMonth()+1)+pad2(dt.getDate())+'T'+pad2(dt.getHours())+pad2(dt.getMinutes())+'00'; }
+  function exportICS(){
+    const date = $('#dateFilter').value || todayStr();
+    const list = items.filter(x => (x.date||todayStr())===date).sort(byTime);
+    const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//MyMapsEmbed//Timeline//EN'];
+    list.forEach((t,i)=>{
+      lines.push('BEGIN:VEVENT');
+      lines.push('UID:'+(t.title||'item')+'-'+i+'@mymaps.local');
+      lines.push('DTSTAMP:'+icsDate(t.date,t.start));
+      lines.push('DTSTART:'+icsDate(t.date,t.start));
+      lines.push('DTEND:'+icsDate(t.date,t.end||t.start));
+      lines.push('SUMMARY:'+(t.title||'').replace(/[,;]/g,' '));
+      lines.push('LOCATION:'+('Lat '+t.lat+', Lng '+t.lng).replace(/[,;]/g,' '));
+      if(t.notes) lines.push('DESCRIPTION:'+t.notes.replace(/\n/g,'\\n').replace(/[,;]/g,' '));
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\\r\\n')], {type:'text/calendar'}));
+    a.download = 'mymaps-timeline-'+date+'.ics'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 300);
+  }
+  function exportJSON(){
+    const date = $('#dateFilter').value || todayStr();
+    const list = items.filter(x => (x.date||todayStr())===date).sort(byTime);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], {type:'application/json'}));
+    a.download = 'mymaps-timeline-'+date+'.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 300);
+  }
+
+  // KML/CSV parsing
+  async function fetchText(url){
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Fetch failed');
+    return await res.text();
+  }
+  function parseKML(text){
+    const dom = new DOMParser().parseFromString(text, 'application/xml');
+    const placemarks = [...dom.getElementsByTagName('Placemark')];
+    const out = [];
+    placemarks.forEach(pm => {
+      const name = pm.getElementsByTagName('name')[0]?.textContent || '';
+      const desc = pm.getElementsByTagName('description')[0]?.textContent || '';
+      const coordText = pm.getElementsByTagName('coordinates')[0]?.textContent?.trim() || '';
+      const coords = coordText.split(',').map(parseFloat);
+      const lng = coords[0], lat = coords[1];
+      const {start, end} = parseTimeFromText(name + ' ' + desc);
+      const date = parseDateFromText(name + ' ' + desc);
+      out.push({ title:name, date, start, end, lat, lng, notes:desc });
+    });
+    return out;
+  }
+  function parseCSV(text){
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const hdr = lines.shift().split(',').map(h=>h.trim().toLowerCase());
+    const idx = (k) => hdr.indexOf(k);
+    const out = [];
+    for(const line of lines){
+      const cols = line.split(','); // simple CSV (no quoted commas). For complex CSV import KML instead.
+      const title = cols[idx('name')] || cols[idx('title')] || '';
+      const desc = cols[idx('description')] || cols[idx('notes')] || '';
+      const lat = parseFloat(cols[idx('latitude')]);
+      const lng = parseFloat(cols[idx('longitude')]);
+      const timeField = cols[idx('time')] || '';
+      let {start, end} = parseTimeFromText(timeField + ' ' + title + ' ' + desc);
+      const date = parseDateFromText(cols[idx('date')] || title + ' ' + desc);
+      out.push({ title, date, start, end, lat, lng, notes: desc });
+    }
+    return out;
+  }
+
+  async function handleFetchKML(){
+    const url = $('#kmlUrl').value.trim();
+    if(!url) { alert('Paste a KML URL first.'); return; }
+    try{
+      const txt = await fetchText(url);
+      const arr = parseKML(txt);
+      items = arr; save();
+      localStorage.setItem(KEY_KML, url);
+      render();
+      alert('Loaded '+arr.length+' items from KML.');
+    }catch(e){
+      alert('Could not fetch KML (CORS or permissions). Export KML from My Maps and use Import instead.');
+    }
+  }
+  function handleImport(){
+    $('#fileInput').click();
+  }
+  $('#fileInput').addEventListener('change', async e => {
+    const file = e.target.files[0]; if(!file) return;
+    const text = await file.text();
+    try{
+      const arr = file.name.toLowerCase().endsWith('.kml') ? parseKML(text) : parseCSV(text);
+      items = arr; save(); render();
+      alert('Imported '+arr.length+' items.');
+    }catch(e){
+      alert('Import failed. For CSV, use simple headers: Name,Description,Latitude,Longitude,Date,Time.');
+    }
+  });
+
+  // Map URL setup
+  function setMap(){
+    const url = $('#mymapsUrl').value.trim();
+    if(!url){ alert('Paste your My Maps embed URL.'); return; }
+    $('#mapFrame').src = url;
+    localStorage.setItem(KEY_URL, url);
+  }
+
+  // Events
+  $('#btnSetMap').addEventListener('click', setMap);
+  $('#btnFetchKML').addEventListener('click', handleFetchKML);
+  $('#btnImport').addEventListener('click', handleImport);
+  $('#btnExportICS').addEventListener('click', exportICS);
+  $('#btnExportJSON').addEventListener('click', exportJSON);
+  $('#btnClear').addEventListener('click', () => { if(confirm('Clear stored items?')){ items = []; save(); render(); }});
+  $('#dateFilter').addEventListener('change', render);
+  $('#search').addEventListener('input', render);
+
+  // Init
+  (function init(){
+    const url = localStorage.getItem(KEY_URL) || '';
+    if(url){ $('#mymapsUrl').value = url; $('#mapFrame').src = url; }
+    const kurl = localStorage.getItem(KEY_KML) || '';
+    if(kurl){ $('#kmlUrl').value = kurl; }
+    load();
+    $('#dateFilter').value = todayStr();
+    render();
+  })();
+</script>
+</body>
+</html>
