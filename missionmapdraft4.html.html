@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Maps — Overlay (Sheet-Reflective Cards)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b; }
+  *{ box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+  #mapFrame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background:#0b0e14; }
+  #overlay { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto 1fr; pointer-events: none; }
+  #toolbar, #sourceBar { pointer-events:auto; background: rgba(12,15,20,.92); border-bottom:1px solid #1c2333; backdrop-filter: blur(6px); }
+  #toolbar { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px 12px; }
+  #sourceBar { display:flex; gap:8px; align-items:center; padding:6px 12px; }
+  .title { font-weight:700; letter-spacing:.2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input, button { font:inherit; }
+  input[type="search"], input[type="url"] { background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:10px; }
+  .btn { background:#1a2131; color:var(--text); border:1px solid #24304a; padding:10px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .btn:hover { transform:translateY(-1px); border-color:#324166; }
+  .btn.accent { background:linear-gradient(180deg,#2a3f36,#1e2f29); border-color:#2f574a; color:#d6fff3; }
+  .btn.danger { background:#2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+  .tiny { font-size:12px; color:var(--muted); }
+  .uploadCtl input { display:none; }
+  #missions { pointer-events:auto; padding:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 420px)); gap:12px; align-content:start; overflow:auto; height:100%; background: rgba(255,255,255,0.06); }
+  .card { background:#111722; border:1px solid #223052; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.25); overflow:hidden; }
+  .cardHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; background:#0f1520; border-bottom:1px solid #1c2333; }
+  .pill { font-size:11px; padding:3px 8px; border-radius:999px; background:#19263c; color:#cfe0ff; border:1px solid #243a5e; }
+  .cardTitle { font-weight:700; }
+  .metaRow { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; margin-top:4px; }
+  .sep { color:#4c5877; }
+  .cardBody { padding:10px 12px 12px; }
+  .desc { color:#cfd5e2; margin:10px 0 12px; }
+  .progress { background:#0e1320; border:1px solid #1c2741; border-radius:999px; height:12px; overflow:hidden; position:relative; margin:8px 0 12px; }
+  .progress .bar { height:100%; width:0%; background: linear-gradient(90deg, #1dd1a1, #10ac84); transition: width 300ms ease; }
+  .pctText { font-size:12px; color:#c9d4ea; position:absolute; right:6px; top:-20px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .tag { font-size:11px; padding:3px 6px; border-radius:6px; background:#0e1320; color:#cbd4e9; border:1px solid #1c2741; }
+  .extras { display:grid; grid-template-columns: 1fr; gap:6px; }
+  .kv { display:flex; gap:8px; align-items:baseline; font-size:13px; }
+  .kv .k { color:#9fb3d1; min-width: 110px; opacity:.85; }
+  .kv .v a { color:#8db1ff; text-decoration:none; }
+  .kv .v a:hover { text-decoration:underline; }
+  .media { margin:8px 0; display:flex; gap:8px; flex-wrap:wrap; }
+  .media img { max-width: 100%; height:auto; border-radius:10px; border:1px solid #25324a; }
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  .actions .btn { padding:6px 10px; }
+  .card.hidden { display:none; }
+  .card.collapsed .cardBody { display:none; }
+  .overlay-hidden #toolbar, .overlay-hidden #sourceBar, .overlay-hidden #missions { display:none; }
+  .overlay-hidden #overlay { pointer-events:none; }
+  @media (max-width: 860px){ #missions { grid-template-columns: 1fr; } #sheetUrl, #mapUrl { width:100%; max-width:100%; } #sourceBar{flex-wrap:wrap;} }
+</style>
+</head>
+<body>
+  <iframe id="mapFrame" allowfullscreen></iframe>
+
+  <div id="overlay">
+    <div id="toolbar">
+      <div class="title">🗺️ My Maps <span class="tiny">Sheet-reflective cards</span></div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search missions…">
+        <button class="btn" id="btnToggle">Hide Overlay</button>
+        <button class="btn" id="btnExportJSON">Export JSON</button>
+        <button class="btn danger" id="btnClear">Clear</button>
+      </div>
+    </div>
+    <div id="sourceBar">
+      <div class="controls">
+        <input type="url" id="mapUrl" placeholder="My Maps embed URL (https://www.google.com/maps/d/embed?mid=…)" />
+        <button class="btn accent" id="btnSetMap">Set Map</button>
+        <input type="url" id="sheetUrl" placeholder="CSV URL (Google Sheets → Publish to web → CSV)" />
+        <button class="btn" id="btnFetch">Fetch CSV</button>
+        <span class="uploadCtl"><input type="file" id="fileInput" accept=".csv"><label class="btn">Upload CSV</label></span>
+        <span class="tiny">Headers: Title,Description,Latitude,Longitude,Status,Start,End,Progress,Tags,+any others (auto-shown)</span>
+      </div>
+    </div>
+    <div id="missions"></div>
+  </div>
+
+<script>
+const mapFrame = document.getElementById('mapFrame');
+const missions = document.getElementById('missions');
+const qs = new URLSearchParams(location.search);
+const mapParam = qs.get('map') || '';
+const sheetParam = qs.get('sheet') || '';
+const KEY_DATA='mymaps_overlay_missions_v1', KEY_MAP='mymaps_overlay_map_v1';
+
+// Generic CSV with quoted support
+function parseCSV(text){
+  const rows=[]; let i=0, field='', row=[], inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){ if(c==='\"'){ if(text[i+1]==='\"'){ field+='\"'; i++; } else inQ=false; } else field+=c; }
+    else { if(c==='\"') inQ=true; else if(c===','){ row.push(field); field=''; } else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r') field+=c; }
+    i++;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+// Detect URLs
+const urlRe = /^(https?:)?\/\/[^\s]+$/i;
+
+// Build object preserving ALL columns
+function fromCSV(text){
+  const rows=parseCSV(text); if(!rows.length) return [];
+  const headers=rows[0].map(h=>h.trim());
+  return rows.slice(1)
+    .filter(r => r && r.some(v => (v||'').trim().length))
+    .map(r => {
+      const obj={};
+      headers.forEach((h,i)=>obj[h]= (r[i]??'').trim());
+      return obj;
+    });
+}
+
+// Map core keys (case-insensitive)
+function get(obj, ...alts){
+  for(const k of alts){ if(k in obj && obj[k]!== '') return obj[k]; }
+  // try case-insensitive match
+  const lower = Object.fromEntries(Object.entries(obj).map(([k,v])=>[k.toLowerCase(), v]));
+  for(const k of alts){ const v = lower[k.toLowerCase()]; if(typeof v !== 'undefined' && v !== '') return v; }
+  return '';
+}
+
+function toNumber(v){ const n = Number(v); return isFinite(n)?n:NaN; }
+
+const RESERVED = new Set(['Title','Name','Description','Notes','Latitude','Longitude','Status','Start','End','Progress','Tags']);
+
+function buildCard(obj){
+  // Core
+  const title = get(obj,'Title','Name') || 'Untitled';
+  const desc = get(obj,'Description','Notes');
+  const lat = toNumber(get(obj,'Latitude'));
+  const lng = toNumber(get(obj,'Longitude'));
+  const status = get(obj,'Status') || 'Planned';
+  const start = get(obj,'Start');
+  const end = get(obj,'End');
+  let progress = get(obj,'Progress');
+  if (typeof progress === 'string' && progress.endsWith('%')) progress = progress.slice(0,-1);
+  progress = Math.max(0, Math.min(100, Number(progress||0)));
+  const tags = (get(obj,'Tags')||'').split(/[,;]\s*/).filter(Boolean);
+
+  const el = document.createElement('div');
+  el.className='card';
+  el.innerHTML = `
+    <div class="cardHeader">
+      <div>
+        <span class="pill">${status}</span>
+        <span class="cardTitle">${escapeHTML(title)}</span>
+        <div class="metaRow">
+          <span class="coord">${isFinite(lat)&&isFinite(lng) ? lat.toFixed(5)+', '+lng.toFixed(5) : '—'}</span>
+          <span class="sep">•</span>
+          <span class="timer"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn collapseBtn" aria-expanded="true">Collapse</button>
+        <button class="btn danger hideBtn">Hide</button>
+      </div>
+    </div>
+    <div class="cardBody">
+      ${desc ? `<div class="desc">${escapeHTML(desc).replace(/\\n/g,'<br>')}</div>` : ''}
+      <div class="progress"><div class="bar" style="width:${progress}%;"></div><span class="pctText">${progress}%</span></div>
+      ${tags.length? `<div class="tags">${tags.map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>`:''}
+      <div class="media"></div>
+      <div class="extras"></div>
+    </div>`;
+
+  // Extras: render all non-reserved fields
+  const extras = el.querySelector('.extras');
+  const mediaWrap = el.querySelector('.media');
+  Object.entries(obj).forEach(([k,v]) => {
+    if(v==='' || RESERVED.has(k)) return;
+    // Media conventions
+    if(/^(image|photo|thumbnail|img|picture|screenshot)$/i.test(k) && urlRe.test(v)){
+      const img = document.createElement('img'); img.src = v; img.alt = k; mediaWrap.appendChild(img); return;
+    }
+    // Links
+    if(/^(url|link|website|doc|sheet)$/i.test(k) && urlRe.test(v)){
+      const row = document.createElement('div'); row.className='kv';
+      row.innerHTML = `<div class="k">${escapeHTML(k)}</div><div class="v"><a href="${v}" target="_blank" rel="noopener">${escapeHTML(v)}</a></div>`;
+      extras.appendChild(row); return;
+    }
+    // Everything else
+    const row = document.createElement('div'); row.className='kv';
+    row.innerHTML = `<div class="k">${escapeHTML(k)}</div><div class="v">${escapeHTML(v)}</div>`;
+    extras.appendChild(row);
+  });
+
+  // Interactions
+  el.querySelector('.collapseBtn').addEventListener('click', () => {
+    const isColl = el.classList.toggle('collapsed');
+    el.querySelector('.collapseBtn').textContent = isColl ? 'Expand' : 'Collapse';
+    el.querySelector('.collapseBtn').setAttribute('aria-expanded', String(!isColl));
+  });
+  el.querySelector('.hideBtn').addEventListener('click', () => el.classList.add('hidden'));
+
+  // Live timer
+  const timerEl = el.querySelector('.timer');
+  if (end) {
+    const endTs = new Date(end).getTime();
+    const startTs = start ? new Date(start).getTime() : null;
+    const tick = () => {
+      const now = Date.now(), remain = endTs - now;
+      if (!isFinite(remain)) { timerEl.textContent = ''; return; }
+      if (remain <= 0) { timerEl.textContent = 'Done'; return; }
+      timerEl.textContent = fmtDuration(remain) + ' left';
+    };
+    tick(); setInterval(tick, 1000);
+  }
+
+  return el;
+}
+
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtDuration(ms){ const sec=Math.floor(ms/1000); const d=Math.floor(sec/86400); const h=Math.floor((sec%86400)/3600); const m=Math.floor((sec%3600)/60); const s=sec%60; const parts=[]; if(d)parts.push(d+'d'); if(h||d)parts.push(h+'h'); if(m||h||d)parts.push(m+'m'); parts.push(s+'s'); return parts.join(' '); }
+
+// Render list
+let DATA = [];
+function render(){
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  missions.innerHTML='';
+  DATA.filter(obj => {
+    const hay = JSON.stringify(obj).toLowerCase();
+    return !q || hay.includes(q);
+  }).forEach(obj => missions.appendChild(buildCard(obj)));
+}
+
+// Wire controls
+document.getElementById('btnToggle').addEventListener('click', ()=> document.body.classList.toggle('overlay-hidden'));
+document.getElementById('btnExportJSON').addEventListener('click', ()=>{
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}));
+  a.download='missions.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),300);
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{ if(confirm('Clear stored missions?')){ localStorage.removeItem(KEY_DATA); DATA=[]; render(); } });
+document.getElementById('btnSetMap').addEventListener('click', ()=>{
+  const url=document.getElementById('mapUrl').value.trim(); if(!url) return alert('Paste a My Maps embed URL.');
+  mapFrame.src=url; localStorage.setItem(KEY_MAP,url);
+});
+document.getElementById('btnFetch').addEventListener('click', async ()=>{
+  const url=document.getElementById('sheetUrl').value.trim(); if(!url) return alert('Paste a CSV (published Sheet) URL.');
+  try{ const res=await fetch(url,{cache:'no-store'}); const text=await res.text(); DATA=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); alert('Loaded '+DATA.length+' missions.'); }
+  catch{ alert('Fetch failed (CORS or permissions). Try Upload CSV.'); }
+});
+document.querySelector('.uploadCtl label').addEventListener('click', ()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f) return; const text=await f.text(); DATA=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); });
+document.getElementById('search').addEventListener('input', render);
+
+// Init
+(function init(){
+  const savedMap=localStorage.getItem(KEY_MAP); const map=mapParam || savedMap || '';
+  if(map){ document.getElementById('mapUrl').value=map; mapFrame.src=map; }
+  const saved=localStorage.getItem(KEY_DATA);
+  if(sheetParam){ document.getElementById('sheetUrl').value=sheetParam; fetch(sheetParam).then(r=>r.text()).then(t=>{ DATA=fromCSV(t); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); }).catch(()=>{}); }
+  else if(saved){ try{ DATA=JSON.parse(saved)||[]; }catch{ DATA=[]; } }
+  else {
+    const seed=`Title,Description,Latitude,Longitude,Status,Start,End,Progress,Tags,Assignee,Priority,Link,Image
+Walmart Deli,Lacey WA,47.0604,-122.7731,Active,2025-08-31T12:00:00-07:00,2025-09-01T12:00:00-07:00,30,food;supply,Alice,High,https://maps.google.com,https://picsum.photos/seed/walmart/480/240
+Briefing Point,Command staff meet here,47.0471,-122.8225,Planned,2025-08-31T10:00:00-07:00,2025-08-31T14:00:00-07:00,0,ops;briefing,Bob,Medium,https://example.com,https://picsum.photos/seed/brief/480/240`;
+    DATA = fromCSV(seed);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
