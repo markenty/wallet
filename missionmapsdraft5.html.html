@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Maps — Overlay (Show ALL Sheet Columns)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b; }
+  *{ box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+  #mapFrame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background:#0b0e14; }
+  #overlay { position: fixed; inset: 0; display: grid; grid-template-rows: auto auto 1fr; pointer-events: none; }
+  #toolbar, #sourceBar { pointer-events:auto; background: rgba(12,15,20,.92); border-bottom:1px solid #1c2333; backdrop-filter: blur(6px); }
+  #toolbar { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px 12px; }
+  #sourceBar { display:flex; gap:8px; align-items:center; padding:6px 12px; flex-wrap:wrap; }
+  .title { font-weight:700; letter-spacing:.2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input, button { font:inherit; }
+  input[type="search"], input[type="url"] { background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:10px; }
+  .btn { background:#1a2131; color:var(--text); border:1px solid #24304a; padding:10px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .btn:hover { transform:translateY(-1px); border-color:#324166; }
+  .btn.accent { background:linear-gradient(180deg,#2a3f36,#1e2f29); border-color:#2f574a; color:#d6fff3; }
+  .btn.danger { background:#2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+  .tiny { font-size:12px; color:var(--muted); }
+  .uploadCtl input { display:none; }
+  #missions { pointer-events:auto; padding:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 460px)); gap:12px; align-content:start; overflow:auto; height:100%; background: rgba(255,255,255,0.06); }
+  .card { background:#111722; border:1px solid #223052; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.25); overflow:hidden; }
+  .cardHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; background:#0f1520; border-bottom:1px solid #1c2333; }
+  .pill { font-size:11px; padding:3px 8px; border-radius:999px; background:#19263c; color:#cfe0ff; border:1px solid #243a5e; }
+  .cardTitle { font-weight:700; }
+  .metaRow { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; margin-top:4px; }
+  .sep { color:#4c5877; }
+  .cardBody { padding:10px 12px 12px; }
+  .desc { color:#cfd5e2; margin:10px 0 12px; }
+  .progress { background:#0e1320; border:1px solid #1c2741; border-radius:999px; height:12px; overflow:hidden; position:relative; margin:8px 0 12px; }
+  .progress .bar { height:100%; width:0%; background: linear-gradient(90deg, #1dd1a1, #10ac84); transition: width 300ms ease; }
+  .pctText { font-size:12px; color:#c9d4ea; position:absolute; right:6px; top:-20px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .tag { font-size:11px; padding:3px 6px; border-radius:6px; background:#0e1320; color:#cbd4e9; border:1px solid #1c2741; }
+  .kvgrid { display:grid; grid-template-columns: minmax(120px, 1fr) 2fr; gap:6px 12px; }
+  .k { color:#9fb3d1; opacity:.9; font-size:12.5px; }
+  .v { font-size:13px; }
+  .v a { color:#8db1ff; text-decoration:none; }
+  .v a:hover { text-decoration:underline; }
+  .actions { display:flex; gap:8px; margin-top:12px; }
+  .actions .btn { padding:6px 10px; }
+  .card.hidden { display:none; }
+  .card.collapsed .cardBody { display:none; }
+  .columnsBar { display:flex; flex-wrap:wrap; gap:6px; padding:6px 12px; background:#0b1220; border-bottom:1px solid #1a2240; font-size:12px; }
+  .columnsBar .chip { background:#0e1320; border:1px solid #1c2741; color:#c6d6f7; border-radius:999px; padding:3px 8px; }
+  .overlay-hidden #toolbar, .overlay-hidden #sourceBar, .overlay-hidden #missions { display:none; }
+  .overlay-hidden #overlay { pointer-events:none; }
+  @media (max-width: 860px){ #missions { grid-template-columns: 1fr; } #sheetUrl, #mapUrl { width:100%; max-width:100%; } #sourceBar{flex-wrap:wrap;} }
+</style>
+</head>
+<body>
+  <iframe id="mapFrame" allowfullscreen></iframe>
+
+  <div id="overlay">
+    <div id="toolbar">
+      <div class="title">🗺️ My Maps <span class="tiny">Cards mirror your Sheet</span></div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search…">
+        <button class="btn" id="btnToggle">Hide Overlay</button>
+        <button class="btn" id="btnExportJSON">Export JSON</button>
+        <button class="btn danger" id="btnClear">Clear</button>
+      </div>
+    </div>
+    <div id="sourceBar">
+      <div class="controls">
+        <input type="url" id="mapUrl" placeholder="My Maps embed URL (https://www.google.com/maps/d/embed?mid=…)" />
+        <button class="btn accent" id="btnSetMap">Set Map</button>
+        <input type="url" id="sheetUrl" placeholder="CSV URL (Google Sheets → Publish to web → CSV)" />
+        <button class="btn" id="btnFetch">Fetch CSV</button>
+        <span class="uploadCtl"><input type="file" id="fileInput" accept=".csv"><label class="btn">Upload CSV</label></span>
+        <span class="tiny">All columns displayed in each card (order preserved).</span>
+      </div>
+    </div>
+    <div id="columnsBar" class="columnsBar" style="display:none;"></div>
+    <div id="missions"></div>
+  </div>
+
+<script>
+const mapFrame = document.getElementById('mapFrame');
+const missions = document.getElementById('missions');
+const columnsBar = document.getElementById('columnsBar');
+const qs = new URLSearchParams(location.search);
+const mapParam = qs.get('map') || '';
+const sheetParam = qs.get('sheet') || '';
+const KEY_DATA='mymaps_overlay_missions_v1', KEY_MAP='mymaps_overlay_map_v1';
+
+let HEADERS = []; // preserve column order
+let DATA = [];
+
+// Robust CSV (quoted fields, BOM trim)
+function parseCSV(text){
+  text = text.replace(/^\\ufeff/, ''); // strip BOM
+  const rows=[]; let i=0, field='', row=[], inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){ if(c==='\"'){ if(text[i+1]==='\"'){ field+='\"'; i++; } else inQ=false; } else field+=c; }
+    else { if(c==='\"') inQ=true;
+           else if(c===','){ row.push(field); field=''; }
+           else if(c==='\\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+           else if(c!=='\\r'){ field+=c; } }
+    i++;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function fromCSV(text){
+  const rows=parseCSV(text);
+  if(!rows.length) return [];
+  HEADERS = rows[0].map(h=>h.trim());
+  document.getElementById('columnsBar').style.display = 'flex';
+  columnsBar.innerHTML = HEADERS.map(h=>`<span class="chip">${escapeHTML(h||'(blank)')}</span>`).join('');
+  return rows.slice(1).filter(r => r && r.some(v => (v||'').trim().length)).map(r => {
+    const obj={};
+    HEADERS.forEach((h,i)=>obj[h]= (r[i]??'').trim());
+    return obj;
+  });
+}
+
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+const urlRe=/^(https?:)?\/\/[^\\s]+$/i;
+
+// Build card purely from obj + HEADERS (no reserved filtering)
+function buildCard(obj){
+  // Pick something reasonable for the card title
+  const title = obj['Title'] || obj['Name'] || Object.values(obj).find(v => v)?.slice(0,80) || 'Untitled';
+  // Optional common fields for niceties
+  const lat = Number(obj['Latitude']); const lng = Number(obj['Longitude']);
+  const status = obj['Status'] || '';
+  const tags = (obj['Tags']||'').split(/[,;]\\s*/).filter(Boolean);
+
+  const el = document.createElement('div'); el.className='card';
+  el.innerHTML = `
+    <div class="cardHeader">
+      <div>
+        ${status?`<span class="pill">${escapeHTML(status)}</span>`:''}
+        <span class="cardTitle">${escapeHTML(title)}</span>
+        <div class="metaRow">
+          ${isFinite(lat)&&isFinite(lng) ? `<span class="coord">${lat.toFixed(5)}, ${lng.toFixed(5)}</span><span class="sep">•</span>`: ''}
+          ${tags.length? `<span class="coord">${tags.map(t=>`#${escapeHTML(t)}`).join(' ')}</span>`:''}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn collapseBtn" aria-expanded="true">Collapse</button>
+        <button class="btn danger hideBtn">Hide</button>
+      </div>
+    </div>
+    <div class="cardBody">
+      <div class="kvgrid"></div>
+    </div>`;
+
+  const grid = el.querySelector('.kvgrid');
+  HEADERS.forEach(h => {
+    const val = (obj[h] ?? '').trim();
+    const k = document.createElement('div'); k.className='k'; k.textContent = h || '(blank)';
+    const v = document.createElement('div'); v.className='v';
+    if(urlRe.test(val)){ const a=document.createElement('a'); a.href=val; a.target='_blank'; a.rel='noopener'; a.textContent=val; v.appendChild(a); }
+    else { v.innerHTML = escapeHTML(val).replace(/\\n/g,'<br>') || '—'; }
+    grid.appendChild(k); grid.appendChild(v);
+  });
+
+  el.querySelector('.collapseBtn').addEventListener('click', () => {
+    const isColl = el.classList.toggle('collapsed');
+    el.querySelector('.collapseBtn').textContent = isColl ? 'Expand' : 'Collapse';
+    el.querySelector('.collapseBtn').setAttribute('aria-expanded', String(!isColl));
+  });
+  el.querySelector('.hideBtn').addEventListener('click', () => el.classList.add('hidden'));
+  return el;
+}
+
+function render(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  missions.innerHTML='';
+  DATA.filter(obj => !q || JSON.stringify(obj).toLowerCase().includes(q))
+      .forEach(obj => missions.appendChild(buildCard(obj)));
+}
+
+// Controls
+document.getElementById('btnToggle').addEventListener('click', ()=>document.body.classList.toggle('overlay-hidden'));
+document.getElementById('btnExportJSON').addEventListener('click', ()=>{
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}));
+  a.download='missions.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),300);
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{ if(confirm('Clear stored items?')){ localStorage.removeItem(KEY_DATA); DATA=[]; render(); }});
+document.getElementById('btnSetMap').addEventListener('click', ()=>{
+  const url=document.getElementById('mapUrl').value.trim(); if(!url) return alert('Paste a My Maps embed URL.'); mapFrame.src=url; localStorage.setItem(KEY_MAP,url);
+});
+document.getElementById('btnFetch').addEventListener('click', async ()=>{
+  const url=document.getElementById('sheetUrl').value.trim(); if(!url) return alert('Paste a CSV URL.');
+  try{ const res=await fetch(url,{cache:'no-store'}); const text=await res.text(); DATA=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); alert('Loaded '+DATA.length+' rows.'); }
+  catch{ alert('Fetch failed (CORS/permissions). Try Upload CSV.'); }
+});
+document.querySelector('.uploadCtl label').addEventListener('click', ()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f) return; const text=await f.text(); DATA=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); });
+document.getElementById('search').addEventListener('input', render);
+
+// Init
+(function init(){
+  const savedMap=localStorage.getItem(KEY_MAP); const map=mapParam || savedMap || '';
+  if(map){ document.getElementById('mapUrl').value=map; mapFrame.src=map; }
+  const saved=localStorage.getItem(KEY_DATA);
+  if(sheetParam){ document.getElementById('sheetUrl').value=sheetParam; fetch(sheetParam).then(r=>r.text()).then(t=>{ DATA=fromCSV(t); localStorage.setItem(KEY_DATA, JSON.stringify(DATA)); render(); }).catch(()=>{}); }
+  else if(saved){ try{ DATA=JSON.parse(saved)||[]; }catch{ DATA=[]; } }
+  else {
+    const seed=`Title,Latitude,Longitude,Status,Progress,Tags,Assignee,Priority,Notes,Link
+Walmart Deli,47.0604,-122.7731,Active,30,food;supply,Alice,High,Test note,https://maps.google.com?q=47.0604,-122.7731
+Briefing Point,47.0471,-122.8225,Planned,0,ops;briefing,Bob,Medium,Command staff meet here,https://example.com`;
+    DATA = fromCSV(seed);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
