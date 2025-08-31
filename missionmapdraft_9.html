@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Maps — Fullscreen + Overlay Missions (Map-Sourced)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b; }
+  *{ box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
+  /* Fullscreen My Maps as bottom layer */
+  #mapFrame {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #0b0e14;
+  }
+
+  /* Overlay root (pointer-events defaults to auto) */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    pointer-events: none; /* allow clicks through where we don't need them */
+  }
+
+  /* Top control bar */
+  #toolbar {
+    pointer-events: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(12,15,20,.92);
+    border-bottom: 1px solid #1c2333;
+    backdrop-filter: blur(6px);
+  }
+  .title { font-weight:700; letter-spacing:.2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input, button { font:inherit; }
+  input[type="search"], input[type="url"] {
+    background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:10px;
+  }
+  .btn { background:#1a2131; color:var(--text); border:1px solid #24304a; padding:10px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .btn:hover { transform:translateY(-1px); border-color:#324166; }
+  .btn.accent { background:linear-gradient(180deg,#2a3f36,#1e2f29); border-color:#2f574a; color:#d6fff3; }
+  .btn.danger { background:#2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+  .tiny { font-size:12px; color:var(--muted); }
+
+  /* Source bar */
+  #sourceBar {
+    pointer-events: auto;
+    display:flex; align-items:center; gap:8px;
+    padding:6px 12px;
+    background: rgba(21,25,35,.92);
+    border-bottom:1px solid #1c2333;
+  }
+  #mapUrl { width: 40ch; max-width: 45vw; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  /* Mission stack (cards) */
+  #missions {
+    pointer-events: auto; /* overlay is interactive */
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
+    gap: 12px;
+    align-content: start;
+    overflow: auto;
+    height: 100%;
+    background: rgba(255,255,255,0.06);
+    contain: content; /* paint/layout containment for perf */
+  }
+
+  .card {
+    background: #111722;
+    border: 1px solid #223052;
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.25);
+    overflow: hidden;
+    will-change: transform; /* smoother hover/collapse */
+  }
+  .cardHeader {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding: 10px 12px;
+    background: #0f1520;
+    border-bottom:1px solid #1c2333;
+  }
+  .cardTitle { font-weight:700; }
+  .pill {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #19263c;
+    color:#cfe0ff;
+    border:1px solid #243a5e;
+    margin-right:6px;
+  }
+  .coord { color: var(--muted); font-size:12px; }
+  .desc { color:#cfd5e2; margin:10px 0 12px; }
+  .cardBody { padding: 10px 12px 12px; }
+
+  .progress {
+    background:#0e1320; border:1px solid #1c2741; border-radius: 999px; height: 12px;
+    overflow: hidden; position: relative; margin-bottom: 10px;
+  }
+  .progress .bar { height: 100%; width: 0%; background: linear-gradient(90deg, #1dd1a1, #10ac84); transition: width 300ms ease; }
+  .pctText { font-size:12px; color:#c9d4ea; position: absolute; right: 6px; top: -22px; }
+
+  .tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { font-size:11px; padding:3px 6px; border-radius:6px; background:#0e1320; color:#cbd4e9; border:1px solid #1c2741; }
+
+  .metaRow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--muted); font-size:12px; margin-top:4px; }
+  .sep { color:#4c5877; }
+
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  .actions .btn { padding:6px 10px; }
+
+  /* Hidden/Collapsed states */
+  .card.hidden { display:none; }
+  .card.collapsed .cardBody { display:none; }
+
+  /* Overlay visibility */
+  .overlay-hidden #toolbar, .overlay-hidden #sourceBar, .overlay-hidden #missions { display:none; }
+  .overlay-hidden #overlay { pointer-events:none; }
+
+  /* Opacity (affects mission grid background only) */
+  #missions[data-alpha] { background: rgba(255,255,255, var(--alpha, .06)); }
+
+  /* Overlay Tab (always visible) */
+  #overlayTab {
+    position: fixed;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    background: #111a2a;
+    color: #eaf1ff;
+    border: 1px solid #2a3a5a;
+    border-radius: 10px 10px 10px 10px;
+    padding: 8px 10px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.35);
+    display: none; /* default hidden */
+    cursor: pointer;
+    user-select: none;
+  }
+  #overlayTab span { display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .25px; }
+  /* Show the tab when overlay is hidden */
+  .overlay-hidden #overlayTab { display: block; }
+
+  /* Modal (VIEW-ONLY; data sourced from My Maps feature) */
+  dialog { border:1px solid #24304a; background:#0f1520; color:var(--text); border-radius:12px; padding:0; width:min(560px, 96vw); }
+  .modalHead { padding:12px; border-bottom:1px solid #1c2333; font-weight:700; background:#101827; }
+  .modalBody { padding:12px; display:grid; gap:10px; }
+  .field { display:grid; grid-template-columns: 120px 1fr; align-items:start; gap:10px; }
+  .field output, .field div { background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:8px; white-space:pre-wrap; }
+  .modalFoot { padding:12px; border-top:1px solid #1c2333; display:flex; gap:8px; justify-content:flex-end; }
+  .kbd { padding:2px 6px; border:1px solid #324166; background:#0e1320; border-radius:6px; font-size:12px; }
+</style>
+</head>
+<body>
+  <!-- Bottom-layer map -->
+  <iframe id="mapFrame" allowfullscreen></iframe>
+
+  <!-- Always-visible tab to reopen overlay when hidden -->
+  <div id="overlayTab" title="Show overlay"><span>Show Overlay</span></div>
+
+  <!-- Overlay UI -->
+  <div id="overlay">
+    <div id="toolbar">
+      <div class="title">🗺️ My Maps <span class="tiny">Overlay (Map-sourced)</span></div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search…">
+        <label class="tiny">Opacity <input type="range" id="opacity" min="0.05" max="0.95" step="0.05" value="0.35"></label>
+        <button class="btn" id="btnToggle">Hide Overlay</button>
+        <button class="btn" id="btnShare">Share Link</button>
+        <button class="btn" id="btnExportJSON">Export JSON</button>
+      </div>
+    </div>
+
+    <div id="sourceBar">
+      <div class="controls">
+        <input type="url" id="mapUrl" placeholder="My Maps URL (edit or embed)" />
+        <button class="btn accent" id="btnSetMap">Set Map</button>
+        <button class="btn" id="btnPull">Load from Map</button>
+        <span class="muted">Source is locked to the My Map. Upload/Sheet disabled by design.</span>
+      </div>
+    </div>
+
+    <div id="missions" data-alpha></div>
+  </div>
+
+  <!-- View Feature Modal (read-only) -->
+  <dialog id="featureDlg">
+    <div class="modalHead">Feature Details (My Maps)</div>
+    <div class="modalBody">
+      <div class="field"><label>Title</label><output id="vTitle"></output></div>
+      <div class="field"><label>Description</label><div id="vDesc"></div></div>
+      <div class="field"><label>Latitude</label><output id="vLat"></output></div>
+      <div class="field"><label>Longitude</label><output id="vLng"></output></div>
+      <div class="field"><label>Status</label><output id="vStatus"></output></div>
+      <div class="field"><label>Tags</label><output id="vTags"></output></div>
+      <div class="field"><label>Link</label><output id="vLink"></output></div>
+    </div>
+    <div class="modalFoot">
+      <button class="btn" id="btnClose">Close</button>
+      <a class="btn accent" id="btnOpenMaps" target="_blank" rel="noopener">Open in Maps</a>
+    </div>
+  </dialog>
+
+<script>
+// ---------- Query params ----------
+const qs = new URLSearchParams(location.search);
+const mapParam = qs.get('map') || '';
+
+// ---------- Elements ----------
+const mapFrame = document.getElementById('mapFrame');
+const missions = document.getElementById('missions');
+const searchBox = document.getElementById('search');
+const opacity = document.getElementById('opacity');
+const overlayTab = document.getElementById('overlayTab');
+
+// ---------- State ----------
+let data = []; // normalized features from My Maps (KML)
+const KEY_MAP = 'mymaps_overlay_map_v2';
+const KEY_DATA = 'mymaps_overlay_data_v2';
+let timerHandles = []; // for any per-card timers (consolidated)
+let filterQ = '';
+
+// ---------- Helpers ----------
+function toEmbedMyMaps(url){
+  try{
+    const u = new URL(url);
+    if(!/google\\.[^/]+\\/maps\\/d\\//.test(u.href)) return url; // not a My Maps URL
+    const mid = u.searchParams.get('mid') || u.pathname.split('/').find(s=>s.length>10 && !isNaN(Number.NaN));
+    if(!mid) return url;
+    return `https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&ehbc=2E312F`;
+  }catch{ return url; }
+}
+function getMid(url){
+  try{
+    const u = new URL(url);
+    const m1 = u.searchParams.get('mid');
+    if(m1) return m1;
+    // Try to detect in path segments
+    const seg = u.pathname.split('/').filter(Boolean);
+    for(const s of seg){ if(/^[A-Za-z0-9_-]{10,}$/.test(s)) return s; }
+    return '';
+  }catch{ return ''; }
+}
+function copy(text){
+  navigator.clipboard?.writeText(text).then(()=>{ toast('Copied to clipboard'); }).catch(()=>{});
+}
+function toast(msg){
+  const d=document.createElement('div');
+  d.textContent=msg; d.style.position='fixed'; d.style.bottom='14px'; d.style.left='50%'; d.style.transform='translateX(-50%)';
+  d.style.background='#101827'; d.style.border='1px solid #24304a'; d.style.padding='8px 12px'; d.style.borderRadius='10px'; d.style.boxShadow='0 10px 24px rgba(0,0,0,.35)';
+  document.body.appendChild(d); setTimeout(()=>d.remove(), 1600);
+}
+function escapeHTML(s){ return String(s).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\\'':'&#39;'}[m])); }
+function mapsLink(lat,lng){
+  if(Number.isFinite(lat) && Number.isFinite(lng)) return `https://www.google.com/maps?q=${lat},${lng}`;
+  return 'https://www.google.com/maps';
+}
+
+// ---------- KML fetch/parse (My Maps) ----------
+async function fetchMyMapsDataFromKML(mapUrl){
+  const mid = getMid(mapUrl);
+  if(!mid) throw new Error('Could not find My Maps ID (mid) in URL.');
+  // Public export endpoint for My Maps KML
+  const kmlUrl = `https://www.google.com/maps/d/kml?mid=${encodeURIComponent(mid)}&forcekml=1`;
+  const res = await fetch(kmlUrl, {cache:'no-store'});
+  if(!res.ok) throw new Error('KML fetch failed: ' + res.status + ' ' + res.statusText);
+  const text = await res.text();
+  return parseKML(text);
+}
+function parseKML(kmlText){
+  const out = [];
+  const doc = new DOMParser().parseFromString(kmlText, 'text/xml');
+  const placemarks = Array.from(doc.getElementsByTagName('Placemark'));
+  for(const pm of placemarks){
+    // Name & description
+    const name = pm.getElementsByTagName('name')[0]?.textContent || 'Untitled';
+    const descRaw = pm.getElementsByTagName('description')[0]?.textContent || '';
+    // Coordinates (Point preferred; otherwise centroid of LineString/Polygon if present)
+    let lat = NaN, lng = NaN;
+    const pt = pm.getElementsByTagName('Point')[0];
+    if(pt){
+      const coordsText = pt.getElementsByTagName('coordinates')[0]?.textContent?.trim() || '';
+      // lon,lat[,alt]
+      const parts = coordsText.split(',').map(Number);
+      if(parts.length >= 2){
+        lng = parts[0]; lat = parts[1];
+      }
+    } else {
+      // Try LineString centroid (rough) or first coordinate
+      const line = pm.getElementsByTagName('LineString')[0] || pm.getElementsByTagName('Polygon')[0];
+      if(line){
+        const coordsText = line.getElementsByTagName('coordinates')[0]?.textContent?.trim() || '';
+        const pairs = coordsText.split(/\\s+/).map(s=>s.split(',').map(Number)).filter(a=>a.length>=2);
+        if(pairs.length){
+          // simple mean as a fallback
+          let sx=0, sy=0;
+          for(const a of pairs){ sx += a[0]; sy += a[1]; }
+          lng = sx / pairs.length; lat = sy / pairs.length;
+        }
+      }
+    }
+    // Attempt to extract status/progress/tags from description HTML if present (convention: Status:, Progress:, Tags:)
+    const tmp = document.createElement('div');
+    tmp.innerHTML = descRaw;
+    const textish = tmp.textContent || '';
+    const status = /Status\\s*:\\s*([^\\n]+)/i.exec(textish)?.[1]?.trim() || 'Planned';
+    const progress = Number((/Progress\\s*:\\s*(\\d{1,3})/i.exec(textish)?.[1] || '0'));
+    const tags = (/Tags\\s*:\\s*([^\\n]+)/i.exec(textish)?.[1] || '')
+      .split(/[,;]\\s*/).filter(Boolean);
+
+    out.push({
+      title: name,
+      descHTML: descRaw,
+      lat: Number(lat),
+      lng: Number(lng),
+      status,
+      progress: Math.max(0, Math.min(100, isFinite(progress)?progress:0)),
+      tags
+    });
+  }
+  return out;
+}
+
+// ---------- Rendering (virtualized-ish + single timer loop) ----------
+function buildCard(it, idx){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="cardHeader">
+      <div>
+        <span class="pill">${escapeHTML(it.status)}</span>
+        <span class="cardTitle">${escapeHTML(it.title)}</span>
+        <div class="metaRow">
+          <span class="coord">${isFinite(it.lat)&&isFinite(it.lng) ? it.lat.toFixed(5)+', '+it.lng.toFixed(5) : '—'}</span>
+          <span class="sep">•</span>
+          <a class="tiny" target="_blank" rel="noopener" href="${mapsLink(it.lat,it.lng)}">Open in Maps</a>
+          <span class="sep">•</span>
+          <span class="timer" data-index="${idx}"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm collapseBtn" aria-expanded="true" title="Collapse [C]"><span>Collapse</span></button>
+        <button class="btn btn-sm danger hideBtn" title="Hide [H]">Hide</button>
+      </div>
+    </div>
+    <div class="cardBody">
+      <div class="desc">${it.descHTML ? it.descHTML : '—'}</div>
+      <div class="progress"><div class="bar" style="width:${it.progress}%"></div><span class="pctText">${it.progress}%</span></div>
+      <div class="tags"></div>
+    </div>
+  `;
+
+  // tags
+  const tagsWrap = el.querySelector('.tags');
+  it.tags.forEach(t=>{
+    const span = document.createElement('span');
+    span.className = 'tag';
+    span.textContent = t;
+    tagsWrap.appendChild(span);
+  });
+
+  // collapse
+  const collapseBtn = el.querySelector('.collapseBtn');
+  collapseBtn.addEventListener('click', () => {
+    const isColl = el.classList.toggle('collapsed');
+    collapseBtn.firstChild.textContent = isColl ? 'Expand' : 'Collapse';
+    collapseBtn.setAttribute('aria-expanded', String(!isColl));
+  });
+
+  // hide
+  el.querySelector('.hideBtn').addEventListener('click', () => el.classList.add('hidden'));
+
+  // open modal on card click (body area)
+  el.querySelector('.cardBody').addEventListener('click', () => openViewModal(it));
+
+  return el;
+}
+function render(){
+  const q = filterQ.toLowerCase();
+  missions.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  // Lightweight virtualization: cap initial render to 120 cards; rest via IntersectionObserver append
+  const filtered = data.filter(it => !q || (it.title + ' ' + (it.descHTML||'') + ' ' + (it.tags||[]).join(' ')).toLowerCase().includes(q));
+  const initial = filtered.slice(0, 120);
+  initial.forEach((it, idx) => frag.appendChild(buildCard(it, idx)));
+  missions.appendChild(frag);
+  if(filtered.length > 120){
+    let i = 120;
+    const sentinel = document.createElement('div');
+    sentinel.style.height = '1px';
+    missions.appendChild(sentinel);
+    const io = new IntersectionObserver((entries) => {
+      for(const e of entries){
+        if(e.isIntersecting && i < filtered.length){
+          const end = Math.min(i+60, filtered.length);
+          const chunk = document.createDocumentFragment();
+          for(; i<end; i++) chunk.appendChild(buildCard(filtered[i], i));
+          missions.insertBefore(chunk, sentinel);
+        }
+      }
+    });
+    io.observe(sentinel);
+  }
+}
+
+// ---------- Timers (single loop) ----------
+let timerId = null;
+function startTimers(){
+  stopTimers();
+  timerId = setInterval(()=>{
+    // In this version, timers are placeholders; if you later encode Start/End in KML
+    // you can update progress/time-left here across all cards in one pass.
+    // This avoids per-card setInterval overhead.
+  }, 1000);
+}
+function stopTimers(){
+  if(timerId){ clearInterval(timerId); timerId = null; }
+}
+
+// ---------- Controls ----------
+// Overlay show/hide
+document.getElementById('btnToggle').addEventListener('click', () => {
+  document.body.classList.toggle('overlay-hidden');
+});
+overlayTab.addEventListener('click', () => {
+  document.body.classList.remove('overlay-hidden');
+  overlayTab.style.opacity = '0.7';
+  setTimeout(()=>overlayTab.style.opacity='1', 120);
+});
+
+// Opacity
+opacity.addEventListener('input', () => {
+  missions.style.setProperty('--alpha', opacity.value);
+});
+
+// Export JSON (current data)
+document.getElementById('btnExportJSON').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)], {type:'application/json'}));
+  a.download = 'missions_from_mymap.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),300);
+});
+
+// Set Map
+document.getElementById('btnSetMap').addEventListener('click', () => {
+  const raw = document.getElementById('mapUrl').value.trim();
+  if(!raw) return alert('Paste a My Maps URL.');
+  const url = toEmbedMyMaps(raw);
+  mapFrame.src = url; localStorage.setItem(KEY_MAP, raw); // save the *original* URL so we can extract mid reliably
+  if(url!==raw) toast('Converted to embed URL for the map layer');
+});
+
+// Pull from Map
+document.getElementById('btnPull').addEventListener('click', async () => {
+  const raw = document.getElementById('mapUrl').value.trim() || localStorage.getItem(KEY_MAP) || '';
+  if(!raw) return alert('Set a My Maps URL first.');
+  try{
+    const feat = await fetchMyMapsDataFromKML(raw);
+    data = feat;
+    localStorage.setItem(KEY_DATA, JSON.stringify(data));
+    render();
+    toast('Loaded ' + data.length + ' features from My Maps');
+  }catch(e){
+    alert('Could not load from My Maps (check sharing is public and that the link is a My Maps URL with a visible mid).');
+    console.error(e);
+  }
+});
+
+// Share Link builder
+document.getElementById('btnShare').addEventListener('click', () => {
+  const map = document.getElementById('mapUrl').value.trim() || localStorage.getItem(KEY_MAP) || '';
+  const params = new URLSearchParams();
+  if(map) params.set('map', map);
+  const url = location.origin + location.pathname + '?' + params.toString();
+  copy(url);
+});
+
+// Search (throttled)
+let searchT = 0;
+searchBox.addEventListener('input', () => {
+  filterQ = searchBox.value || '';
+  if(searchT) cancelAnimationFrame(searchT);
+  searchT = requestAnimationFrame(render);
+});
+
+// ---------- Modal (view-only) ----------
+const dlg = document.getElementById('featureDlg');
+const btnClose = document.getElementById('btnClose');
+const btnOpenMaps = document.getElementById('btnOpenMaps');
+btnClose.addEventListener('click', ()=> dlg.close());
+function openViewModal(it){
+  document.getElementById('vTitle').textContent = it.title;
+  document.getElementById('vDesc').innerHTML = it.descHTML || '—';
+  document.getElementById('vLat').textContent = Number.isFinite(it.lat) ? it.lat : '—';
+  document.getElementById('vLng').textContent = Number.isFinite(it.lng) ? it.lng : '—';
+  document.getElementById('vStatus').textContent = it.status || '—';
+  document.getElementById('vTags').textContent = (it.tags||[]).join(', ');
+  const link = mapsLink(it.lat,it.lng);
+  const vLink = document.getElementById('vLink');
+  vLink.textContent = link;
+  btnOpenMaps.href = link;
+  dlg.showModal();
+}
+
+// ---------- Init ----------
+(function init(){
+  // Map
+  const savedMap = localStorage.getItem(KEY_MAP);
+  const map = mapParam || savedMap || '';
+  if (map){
+    document.getElementById('mapUrl').value = map;
+    mapFrame.src = toEmbedMyMaps(map);
+  }
+  // Data (restore cache if any for quick boot)
+  const saved = localStorage.getItem(KEY_DATA);
+  if(saved){
+    try{ data = JSON.parse(saved)||[]; }catch{ data = []; }
+  }
+  render();
+  startTimers();
+})();
+</script>
+</body>
+</html>
