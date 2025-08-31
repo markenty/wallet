@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Maps — Fullscreen + Overlay Missions (Hidable Controls)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#151923; --muted:#9aa4b2; --text:#e8edf5; --accent:#67d5b5; --accent2:#7aa2ff; --danger:#ff6b6b; }
+  *{ box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
+  /* Fullscreen map bottom layer */
+  #mapFrame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background:#0b0e14; }
+
+  /* Overlay root */
+  #overlay { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; pointer-events:none; }
+
+  /* ===== Hidable Controls (yellow area) ===== */
+  #controls { pointer-events:auto; }
+  #controls.hidden { display:none; }
+
+  #toolbar, #sourceBar {
+    background: rgba(12,15,20,.92);
+    border-bottom: 1px solid #1c2333;
+    backdrop-filter: blur(6px);
+  }
+  #toolbar {
+    display:flex; gap:8px; align-items:center; justify-content:space-between;
+    padding:10px 12px;
+  }
+  .title { font-weight:700; letter-spacing:.2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input, button { font:inherit; }
+  input[type="search"], input[type="url"] {
+    background:#10141d; color:var(--text); border:1px solid #232c44; border-radius:10px; padding:10px;
+  }
+  .btn { background:#1a2131; color:var(--text); border:1px solid #24304a; padding:10px 12px; border-radius:10px; cursor:pointer; transition:.15s; }
+  .btn:hover { transform:translateY(-1px); border-color:#324166; }
+  .btn.accent { background:linear-gradient(180deg,#2a3f36,#1e2f29); border-color:#2f574a; color:#d6fff3; }
+  .btn.danger { background:#2a1e23; border-color:#5e2e39; color:#ffd7dd; }
+  .tiny { font-size:12px; color:var(--muted); }
+
+  #sourceBar {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+  }
+  #sheetUrl, #mapUrl { width: 36ch; max-width: 45vw; }
+  .uploadCtl input { display:none; }
+  .uploadCtl label { cursor:pointer; }
+
+  /* Missions grid */
+  #missions {
+    pointer-events:auto;
+    padding: 12px;
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
+    gap:12px; align-content:start; overflow:auto; height:100%;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .card { background:#111722; border:1px solid #223052; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.25); overflow:hidden; }
+  .cardHeader { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; background:#0f1520; border-bottom:1px solid #1c2333; }
+  .cardTitle { font-weight:700; }
+  .pill { font-size:11px; padding:3px 8px; border-radius:999px; background:#19263c; color:#cfe0ff; border:1px solid #243a5e; }
+  .coord { color:var(--muted); font-size:12px; }
+  .desc { color:#cfd5e2; margin:10px 0 12px; }
+  .cardBody { padding:10px 12px 12px; }
+  .progress { background:#0e1320; border:1px solid #1c2741; border-radius:999px; height:12px; overflow:hidden; position:relative; margin-bottom:10px; }
+  .progress .bar { height:100%; width:0%; background:linear-gradient(90deg, #1dd1a1, #10ac84); transition:width 300ms ease; }
+  .pctText { font-size:12px; color:#c9d4ea; position:absolute; right:6px; top:-22px; }
+  .tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { font-size:11px; padding:3px 6px; border-radius:6px; background:#0e1320; color:#cbd4e9; border:1px solid #1c2741; }
+  .metaRow { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; margin-top:4px; }
+  .sep { color:#4c5877; }
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  .actions .btn { padding:6px 10px; }
+  .card.hidden { display:none; }
+  .card.collapsed .cardBody { display:none; }
+
+  /* Overlay visibility */
+  .overlay-hidden #overlay > #controls,
+  .overlay-hidden #missions { display:none; }
+  .overlay-hidden #overlay { pointer-events:none; }
+
+  /* Opacity bg hook */
+  #missions[data-alpha] { background: rgba(255,255,255, var(--alpha, .06)); }
+
+  /* Floating Controls Tab (to reopen the yellow area) */
+  #controlsTab {
+    position: fixed; right: 10px; top: 10px;
+    background:#111a2a; color:#eaf1ff; border:1px solid #2a3a5a;
+    padding:8px 10px; border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.35);
+    z-index:50; display:none; cursor:pointer; user-select:none;
+  }
+  /* Show the tab whenever the controls are hidden OR overlay is hidden */
+  #controls.hidden ~ #controlsTab,
+  .overlay-hidden #controlsTab { display:block; }
+
+  /* Mobile tightening */
+  @media (max-width: 860px){
+    #missions { grid-template-columns: 1fr; gap: 10px; }
+    #sheetUrl, #mapUrl { max-width: 100%; width: 100%; }
+    #sourceBar { flex-wrap: wrap; }
+    .controls { gap:6px; }
+  }
+</style>
+</head>
+<body>
+  <!-- Map layer -->
+  <iframe id="mapFrame" allowfullscreen></iframe>
+
+  <!-- Overlay -->
+  <div id="overlay">
+    <!-- HIDABLE CONTROLS -->
+    <div id="controls">
+      <div id="toolbar">
+        <div class="title">🗺️ My Maps <span class="tiny">Fullscreen overlay</span></div>
+        <div class="controls">
+          <input type="search" id="search" placeholder="Search missions…">
+          <label class="tiny">Opacity <input type="range" id="opacity" min="0.05" max="0.95" step="0.05" value="0.35"></label>
+          <button class="btn" id="btnToggleOverlay">Hide Overlay</button>
+          <button class="btn" id="btnExportJSON">Export JSON</button>
+          <button class="btn danger" id="btnClear">Clear</button>
+          <button class="btn" id="btnCollapseControls" title="Collapse controls">▲ Collapse</button>
+        </div>
+      </div>
+
+      <div id="sourceBar">
+        <div class="controls">
+          <input type="url" id="mapUrl" placeholder="My Maps embed URL (https://www.google.com/maps/d/embed?mid=…)" />
+          <button class="btn accent" id="btnSetMap">Set Map</button>
+          <input type="url" id="sheetUrl" placeholder="CSV URL (Google Sheets → Publish to web → CSV)" />
+          <button class="btn" id="btnFetch">Fetch CSV</button>
+          <span class="uploadCtl">
+            <input type="file" id="fileInput" accept=".csv">
+            <label class="btn">Upload CSV</label>
+          </span>
+          <span class="tiny">Headers: Title,Description,Latitude,Longitude,Status,Start,End,Progress,Tags</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating tab to restore controls -->
+    <div id="controlsTab">▼ Controls</div>
+
+    <!-- Missions -->
+    <div id="missions" data-alpha></div>
+  </div>
+
+<script>
+// Query params
+const qs = new URLSearchParams(location.search);
+const mapParam = qs.get('map') || '';
+const sheetParam = qs.get('sheet') || '';
+
+// Elements
+const mapFrame = document.getElementById('mapFrame');
+const missions = document.getElementById('missions');
+const searchBox = document.getElementById('search');
+const opacity = document.getElementById('opacity');
+const controls = document.getElementById('controls');
+const controlsTab = document.getElementById('controlsTab');
+
+// State
+let data = [];
+const KEY_DATA = 'mymaps_overlay_missions_v1';
+const KEY_MAP = 'mymaps_overlay_map_v1';
+
+// CSV parse (quoted supported)
+function parseCSV(text){
+  const rows = []; let i=0, field='', row=[], inQ=false;
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){ if(c==='\"'){ if(text[i+1]==='\"'){ field+='\"'; i++; } else inQ=false; } else field+=c; }
+    else { if(c==='\"') inQ=true; else if(c===','){ row.push(field); field=''; } else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; } else if(c!=='\r') field+=c; }
+    i++;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function normalize(obj){
+  return {
+    title: obj.Title || obj.Name || 'Untitled',
+    desc: obj.Description || obj.Notes || '',
+    lat: Number(obj.Latitude),
+    lng: Number(obj.Longitude),
+    status: obj.Status || 'Planned',
+    start: obj.Start || '',
+    end: obj.End || '',
+    progress: Math.max(0, Math.min(100, Number(obj.Progress||0))),
+    tags: (obj.Tags||'').split(/[,;]\s*/).filter(Boolean)
+  };
+}
+
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtDuration(ms){ const sec=Math.floor(ms/1000); const d=Math.floor(sec/86400); const h=Math.floor((sec%86400)/3600); const m=Math.floor((sec%3600)/60); const s=sec%60; const parts=[]; if(d)parts.push(d+'d'); if(h||d)parts.push(h+'h'); if(m||h||d)parts.push(m+'m'); parts.push(s+'s'); return parts.join(' '); }
+
+function buildCard(it){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="cardHeader">
+      <div>
+        <span class="pill">${it.status}</span>
+        <span class="cardTitle">${it.title}</span>
+        <div class="metaRow">
+          <span class="coord">${isFinite(it.lat)&&isFinite(it.lng) ? it.lat.toFixed(5)+', '+it.lng.toFixed(5) : '—'}</span>
+          <span class="sep">•</span>
+          <span class="timer"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn collapseBtn" aria-expanded="true">Collapse</button>
+        <button class="btn danger hideBtn">Hide</button>
+      </div>
+    </div>
+    <div class="cardBody">
+      <div class="desc">${it.desc ? escapeHTML(it.desc).replace(/\\n/g,'<br>') : '—'}</div>
+      <div class="progress"><div class="bar"></div><span class="pctText"></span></div>
+      <div class="tags"></div>
+    </div>`;
+
+  const bar = el.querySelector('.bar');
+  const pctText = el.querySelector('.pctText');
+  const timerEl = el.querySelector('.timer');
+
+  bar.style.width = it.progress + '%';
+  pctText.textContent = it.progress + '%';
+
+  const tagsWrap = el.querySelector('.tags');
+  it.tags.forEach(t=>{ const span=document.createElement('span'); span.className='tag'; span.textContent=t; tagsWrap.appendChild(span); });
+
+  el.querySelector('.collapseBtn').addEventListener('click', () => {
+    const isColl = el.classList.toggle('collapsed');
+    el.querySelector('.collapseBtn').textContent = isColl ? 'Expand' : 'Collapse';
+    el.querySelector('.collapseBtn').setAttribute('aria-expanded', String(!isColl));
+  });
+  el.querySelector('.hideBtn').addEventListener('click', () => el.classList.add('hidden'));
+
+  if (it.end) {
+    const endTs = new Date(it.end).getTime();
+    const startTs = it.start ? new Date(it.start).getTime() : null;
+    const tick = () => {
+      const now=Date.now(); const remain=endTs-now;
+      if(!isFinite(remain)){ timerEl.textContent=''; return; }
+      if(remain<=0){ timerEl.textContent='Done'; bar.style.width='100%'; pctText.textContent='100%'; return; }
+      timerEl.textContent = fmtDuration(remain) + ' left';
+      if(startTs && endTs>startTs){
+        const pct=Math.round(100*(now-startTs)/(endTs-startTs));
+        const clamp=Math.max(0, Math.min(100, pct));
+        bar.style.width=clamp+'%'; pctText.textContent=clamp+'%';
+      }
+    };
+    tick(); setInterval(tick,1000);
+  }
+  return el;
+}
+
+function render(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  missions.innerHTML='';
+  (window._data || []).filter(it => !q || (it.title+' '+it.desc+' '+it.tags.join(' ')).toLowerCase().includes(q))
+    .forEach(it => missions.appendChild(buildCard(it)));
+}
+
+// Data load helpers
+function fromCSV(text){
+  const rows=parseCSV(text); if(!rows.length) return [];
+  const headers=rows[0].map(h=>h.trim());
+  return rows.slice(1).filter(r=>r.length && r.some(v=>v && v.trim().length)).map(r=>{
+    const obj={}; headers.forEach((h,i)=>obj[h]=(r[i]??'').trim()); return normalize(obj);
+  });
+}
+
+// Controls wiring
+document.getElementById('btnToggleOverlay').addEventListener('click', ()=>{
+  document.body.classList.toggle('overlay-hidden');
+});
+document.getElementById('btnCollapseControls').addEventListener('click', ()=>{
+  controls.classList.add('hidden');
+});
+controlsTab.addEventListener('click', ()=>{
+  controls.classList.remove('hidden');
+  document.body.classList.remove('overlay-hidden');
+});
+
+document.getElementById('btnExportJSON').addEventListener('click', ()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(window._data||[],null,2)], {type:'application/json'}));
+  a.download='missions.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),300);
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  if(confirm('Clear stored missions?')){ localStorage.removeItem(KEY_DATA); window._data=[]; render(); }
+});
+document.getElementById('btnSetMap').addEventListener('click', ()=>{
+  const url=document.getElementById('mapUrl').value.trim(); if(!url) return alert('Paste a My Maps embed URL.');
+  mapFrame.src=url; localStorage.setItem(KEY_MAP,url);
+});
+document.getElementById('btnFetch').addEventListener('click', async ()=>{
+  const url=document.getElementById('sheetUrl').value.trim(); if(!url) return alert('Paste a CSV (published Sheet) URL.');
+  try{ const res=await fetch(url,{cache:'no-store'}); const text=await res.text(); window._data=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(window._data)); render(); alert('Loaded '+(window._data.length)+' missions from CSV.'); }
+  catch{ alert('Fetch failed (CORS or permissions). Try Upload CSV.'); }
+});
+document.querySelector('.uploadCtl label').addEventListener('click', ()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const text=await f.text(); window._data=fromCSV(text); localStorage.setItem(KEY_DATA, JSON.stringify(window._data)); render();
+});
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('opacity').addEventListener('input', ()=>{ missions.style.setProperty('--alpha', document.getElementById('opacity').value); });
+
+// Init
+const KEY_DATA='mymaps_overlay_missions_v1'; const KEY_MAP='mymaps_overlay_map_v1';
+(function init(){
+  const savedMap=localStorage.getItem(KEY_MAP); const map=mapParam || savedMap || '';
+  if(map){ document.getElementById('mapUrl').value = map; mapFrame.src = map; }
+
+  const saved=localStorage.getItem(KEY_DATA);
+  if(sheetParam){
+    document.getElementById('sheetUrl').value = sheetParam;
+    fetch(sheetParam).then(r=>r.text()).then(t=>{ window._data=fromCSV(t); localStorage.setItem(KEY_DATA, JSON.stringify(window._data)); render(); }).catch(()=>{});
+  } else if(saved){
+    try{ window._data = JSON.parse(saved)||[]; }catch{ window._data = []; }
+  } else {
+    const seed=`Title,Description,Latitude,Longitude,Status,Start,End,Progress,Tags
+Walmart Deli,Lacey WA,47.0604,-122.7731,Active,2025-08-31T12:00:00-07:00,2025-09-01T12:00:00-07:00,30,food;supply
+Briefing Point,Command staff meet here,47.0471,-122.8225,Planned,2025-08-31T10:00:00-07:00,2025-08-31T14:00:00-07:00,0,ops;briefing`;
+    window._data=fromCSV(seed);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
