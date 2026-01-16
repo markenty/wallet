@@ -4,15 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Facial Verifier</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         :root { --glow: #00f2ff; --bg: rgba(0, 0, 0, 0.8); }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: 'Courier New', monospace; overflow: hidden; }
         
         .container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        video, canvas#overlay-canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; }
         
-        /* The Mask Layer */
         .mask {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg);
@@ -33,15 +32,15 @@
 
         .status-pill {
             background: rgba(0,0,0,0.6); border: 1px solid var(--glow);
-            padding: 8px 20px; display: inline-block; margin-bottom: 15px;
+            padding: 8px 20px; display: inline-block; margin-bottom: 15px; min-width: 200px;
         }
         
         .btn {
             background: none; border: 1px solid white; color: white;
-            padding: 10px 20px; cursor: pointer; text-transform: uppercase;
+            padding: 10px 20px; cursor: pointer; text-transform: uppercase; margin: 0 5px;
         }
 
-        .btn-capture { background: var(--glow); color: black; font-weight: bold; border: none; opacity: 0.3; pointer-events: none; }
+        .btn-capture { background: var(--glow); color: black; font-weight: bold; border: none; opacity: 0.3; pointer-events: none; transition: 0.3s; }
         .btn-capture.active { opacity: 1; pointer-events: auto; box-shadow: 0 0 15px var(--glow); }
         
         #hidden-canvas { display: none; }
@@ -51,16 +50,16 @@
 
     <div class="container">
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="overlay-canvas"></canvas> <div class="mask"></div>
-        <div class="oval-border" id="scanner-line"></div>
+        <div class="mask"></div>
+        <div class="oval-border"></div>
 
         <div class="hud top">
-            <h2 style="letter-spacing: 4px;">AI BIOMETRIC SCAN</h2>
-            <div id="id-tag" style="font-size: 10px;">SYSTEM: INITIALIZING...</div>
+            <h2 style="letter-spacing: 4px;">FACIAL SCANNER</h2>
+            <div id="id-tag" style="font-size: 10px; color: var(--glow);">AI MODULE ACTIVE</div>
         </div>
 
         <div class="hud bottom">
-            <div class="status-pill" id="status">LOADING MODELS...</div>
+            <div class="status-pill" id="status">INITIALIZING...</div>
             <br>
             <button class="btn" onclick="flipCamera()">Flip</button>
             <button class="btn btn-capture" id="captureBtn" onclick="saveResult()">Capture</button>
@@ -74,24 +73,44 @@
         const status = document.getElementById('status');
         const captureBtn = document.getElementById('captureBtn');
         let useFront = true;
+        let modelsLoaded = false;
 
-        // 1. Load Models
+        // 1. Load Models from a reliable GitHub mirror
         async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            status.innerText = "READY: POSITION FACE";
-            startCamera();
+            status.innerText = "LOADING AI...";
+            const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model/';
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                status.innerText = "MODELS READY";
+                startCamera();
+            } catch (e) {
+                status.innerText = "MODEL LOAD ERROR";
+                console.error(e);
+            }
         }
 
-        // 2. Camera Controls
+        // 2. Camera Controls with explicit play command
         async function startCamera() {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: useFront ? "user" : "environment" } 
-            });
-            video.srcObject = stream;
-            video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
-            detectFace();
+            try {
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: useFront ? "user" : "environment" } 
+                });
+                
+                video.srcObject = stream;
+                video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    detectFace();
+                };
+            } catch (e) {
+                status.innerText = "CAMERA ACCESS DENIED";
+            }
         }
 
         function flipCamera() {
@@ -99,23 +118,30 @@
             startCamera();
         }
 
-        // 3. Real-time Detection
+        // 3. Optimized Real-time Detection
         async function detectFace() {
+            if (!modelsLoaded) return;
+
             const options = new faceapi.TinyFaceDetectorOptions();
             
-            setInterval(async () => {
+            // Using a recursive requestAnimationFrame for smoother performance
+            async function frameLoop() {
+                if (video.paused || video.ended) return;
+
                 const detection = await faceapi.detectSingleFace(video, options);
                 
                 if (detection) {
-                    status.innerText = "FACE DETECTED - HOLD STILL";
-                    status.style.color = "#00ff00";
+                    status.innerText = "FACE DETECTED";
+                    status.style.borderColor = "#00ff00";
                     captureBtn.classList.add('active');
                 } else {
                     status.innerText = "FRAME FACE";
-                    status.style.color = "white";
+                    status.style.borderColor = "var(--glow)";
                     captureBtn.classList.remove('active');
                 }
-            }, 200);
+                requestAnimationFrame(frameLoop);
+            }
+            frameLoop();
         }
 
         // 4. Save Logic
@@ -127,7 +153,6 @@
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
-            // Mirror if front camera
             if (useFront) {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
@@ -135,17 +160,20 @@
             ctx.drawImage(video, 0, 0);
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            // Burn UI onto Image
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.fillRect(0, 0, 300, 100);
+            // Overlay dark area
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.fillRect(0, 0, canvas.width, 100);
+
+            // Text Info
             ctx.fillStyle = "#00f2ff";
-            ctx.font = "20px monospace";
-            ctx.fillText("UID: " + uid, 20, 40);
-            ctx.fillText("VERIFIED: SUCCESS", 20, 70);
+            ctx.font = "bold 24px monospace";
+            ctx.fillText("SCAN UID: " + uid, 30, 50);
+            ctx.font = "18px monospace";
+            ctx.fillText("VERIFIED: " + new Date().toLocaleString(), 30, 80);
 
             const link = document.createElement('a');
-            link.download = `Scan_${uid}.png`;
-            link.href = canvas.toDataURL();
+            link.download = `FaceScan_${uid}.png`;
+            link.href = canvas.toDataURL('image/png');
             link.click();
         }
 
