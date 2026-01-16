@@ -3,165 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facial Scanner</title>
+    <title>AI Facial Verifier</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        :root {
-            --primary-glow: #00f2ff;
-            --overlay-bg: rgba(0, 0, 0, 0.75);
-        }
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* Camera Container */
-        .scanner-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            position: absolute;
-        }
-
-        /* The Dark Overlay with Oval Cutout */
-        .overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--overlay-bg);
-            /* This creates the oval transparent hole */
-            clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%, 
-                       50% 25%, 75% 35%, 80% 50%, 75% 65%, 50% 75%, 25% 65%, 20% 50%, 25% 35%, 50% 25%);
-            /* Using radial-gradient for smoother edges if preferred */
+        :root { --glow: #00f2ff; --bg: rgba(0, 0, 0, 0.8); }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: 'Courier New', monospace; overflow: hidden; }
+        
+        .container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        video, canvas#overlay-canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        
+        /* The Mask Layer */
+        .mask {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg);
             mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
             -webkit-mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
             z-index: 1;
         }
 
-        /* Animated Oval Border */
-        .oval-guide {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 50vh; /* Adjust based on preference */
-            height: 70vh;
-            border: 2px solid var(--primary-glow);
-            border-radius: 50%;
-            box-shadow: 0 0 20px var(--primary-glow);
-            z-index: 2;
-            pointer-events: none;
+        .oval-border {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 50vh; height: 70vh; border: 2px solid var(--glow); border-radius: 50%;
+            box-shadow: 0 0 20px var(--glow); z-index: 2; pointer-events: none;
         }
 
-        /* HUD Elements */
-        .hud-content {
-            position: relative;
-            z-index: 3;
-            text-align: center;
-            height: 80%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            pointer-events: none;
+        .hud { position: absolute; z-index: 10; text-align: center; width: 100%; pointer-events: none; }
+        .top { top: 20px; }
+        .bottom { bottom: 30px; pointer-events: auto; }
+
+        .status-pill {
+            background: rgba(0,0,0,0.6); border: 1px solid var(--glow);
+            padding: 8px 20px; display: inline-block; margin-bottom: 15px;
+        }
+        
+        .btn {
+            background: none; border: 1px solid white; color: white;
+            padding: 10px 20px; cursor: pointer; text-transform: uppercase;
         }
 
-        h1 {
-            text-transform: uppercase;
-            letter-spacing: 5px;
-            font-weight: 300;
-            margin-top: 20px;
-            text-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        .instruction-box {
-            background: rgba(0, 242, 255, 0.1);
-            border: 1px solid var(--primary-glow);
-            padding: 15px 40px;
-            border-radius: 5px;
-            margin-bottom: 40px;
-            backdrop-filter: blur(5px);
-        }
-
-        .instruction-text {
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
+        .btn-capture { background: var(--glow); color: black; font-weight: bold; border: none; opacity: 0.3; pointer-events: none; }
+        .btn-capture.active { opacity: 1; pointer-events: auto; box-shadow: 0 0 15px var(--glow); }
+        
+        #hidden-canvas { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="scanner-container">
+    <div class="container">
         <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay-canvas"></canvas> <div class="mask"></div>
+        <div class="oval-border" id="scanner-line"></div>
 
-        <div class="overlay"></div>
-        <div class="oval-guide"></div>
+        <div class="hud top">
+            <h2 style="letter-spacing: 4px;">AI BIOMETRIC SCAN</h2>
+            <div id="id-tag" style="font-size: 10px;">SYSTEM: INITIALIZING...</div>
+        </div>
 
-        <div class="hud-content">
-            <h1>Facial Scanner</h1>
-            
-            <div class="instruction-box">
-                <div class="instruction-text" id="status">Frame Face</div>
-            </div>
+        <div class="hud bottom">
+            <div class="status-pill" id="status">LOADING MODELS...</div>
+            <br>
+            <button class="btn" onclick="flipCamera()">Flip</button>
+            <button class="btn btn-capture" id="captureBtn" onclick="saveResult()">Capture</button>
         </div>
     </div>
 
+    <canvas id="hidden-canvas"></canvas>
+
     <script>
         const video = document.getElementById('video');
-        const statusText = document.getElementById('status');
+        const status = document.getElementById('status');
+        const captureBtn = document.getElementById('captureBtn');
+        let useFront = true;
 
-        // Request Camera Access
-        async function initCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "user",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
-                video.srcObject = stream;
-            } catch (err) {
-                console.error("Error accessing camera: ", err);
-                statusText.innerText = "Camera Error";
-            }
+        // 1. Load Models
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            status.innerText = "READY: POSITION FACE";
+            startCamera();
         }
 
-        // Initialize
-        initCamera();
+        // 2. Camera Controls
+        async function startCamera() {
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: useFront ? "user" : "environment" } 
+            });
+            video.srcObject = stream;
+            video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
+            detectFace();
+        }
 
-        // Optional: Simple feedback simulation
-        setTimeout(() => {
-            statusText.innerText = "Keep Still...";
-            statusText.style.color = "#00f2ff";
-        }, 3000);
+        function flipCamera() {
+            useFront = !useFront;
+            startCamera();
+        }
+
+        // 3. Real-time Detection
+        async function detectFace() {
+            const options = new faceapi.TinyFaceDetectorOptions();
+            
+            setInterval(async () => {
+                const detection = await faceapi.detectSingleFace(video, options);
+                
+                if (detection) {
+                    status.innerText = "FACE DETECTED - HOLD STILL";
+                    status.style.color = "#00ff00";
+                    captureBtn.classList.add('active');
+                } else {
+                    status.innerText = "FRAME FACE";
+                    status.style.color = "white";
+                    captureBtn.classList.remove('active');
+                }
+            }, 200);
+        }
+
+        // 4. Save Logic
+        function saveResult() {
+            const canvas = document.getElementById('hidden-canvas');
+            const ctx = canvas.getContext('2d');
+            const uid = 'ID-' + Math.random().toString(36).toUpperCase().substr(2, 8);
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Mirror if front camera
+            if (useFront) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Burn UI onto Image
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0, 0, 300, 100);
+            ctx.fillStyle = "#00f2ff";
+            ctx.font = "20px monospace";
+            ctx.fillText("UID: " + uid, 20, 40);
+            ctx.fillText("VERIFIED: SUCCESS", 20, 70);
+
+            const link = document.createElement('a');
+            link.download = `Scan_${uid}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        loadModels();
     </script>
 </body>
 </html>
