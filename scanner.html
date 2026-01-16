@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facial Scanner</title>
+    <style>
+        :root {
+            --primary-glow: #00f2ff;
+            --overlay-bg: rgba(0, 0, 0, 0.75);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Camera Container */
+        .scanner-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+        }
+
+        /* The Dark Overlay with Oval Cutout */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--overlay-bg);
+            /* This creates the oval transparent hole */
+            clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%, 
+                       50% 25%, 75% 35%, 80% 50%, 75% 65%, 50% 75%, 25% 65%, 20% 50%, 25% 35%, 50% 25%);
+            /* Using radial-gradient for smoother edges if preferred */
+            mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
+            -webkit-mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
+            z-index: 1;
+        }
+
+        /* Animated Oval Border */
+        .oval-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50vh; /* Adjust based on preference */
+            height: 70vh;
+            border: 2px solid var(--primary-glow);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--primary-glow);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* HUD Elements */
+        .hud-content {
+            position: relative;
+            z-index: 3;
+            text-align: center;
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        h1 {
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            font-weight: 300;
+            margin-top: 20px;
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .instruction-box {
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--primary-glow);
+            padding: 15px 40px;
+            border-radius: 5px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(5px);
+        }
+
+        .instruction-text {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanner-container">
+        <video id="video" autoplay playsinline muted></video>
+
+        <div class="overlay"></div>
+        <div class="oval-guide"></div>
+
+        <div class="hud-content">
+            <h1>Facial Scanner</h1>
+            
+            <div class="instruction-box">
+                <div class="instruction-text" id="status">Frame Face</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const statusText = document.getElementById('status');
+
+        // Request Camera Access
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                statusText.innerText = "Camera Error";
+            }
+        }
+
+        // Initialize
+        initCamera();
+
+        // Optional: Simple feedback simulation
+        setTimeout(() => {
+            statusText.innerText = "Keep Still...";
+            statusText.style.color = "#00f2ff";
+        }, 3000);
+    </script>
+</body>
+</html>
