@@ -3,226 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Biometric Scan System</title>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <title>Biometric Scanner v3</title>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
     <style>
-        :root { --glow: #00f2ff; --bg: rgba(0, 0, 0, 0.85); }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; }
+        :root { --glow: #00f2ff; --error: #ff4444; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: monospace; overflow: hidden; }
         
-        .container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; background: #111; }
+        #video { width: 100%; height: 100%; object-fit: cover; position: absolute; }
         
+        /* The UI Mask */
+        .overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
         .mask {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg);
-            mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
-            -webkit-mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 98%, black 100%);
-            z-index: 1;
+            position: absolute; inset: 0; background: rgba(0,0,0,0.8);
+            mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 99%, black 100%);
+            -webkit-mask: radial-gradient(ellipse 35% 45% at 50% 50%, transparent 99%, black 100%);
         }
-        .oval-border {
+        .oval {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 50vh; height: 70vh; border: 2px solid var(--glow); border-radius: 50%;
-            box-shadow: 0 0 20px var(--glow); z-index: 2; pointer-events: none;
+            box-shadow: 0 0 15px var(--glow);
         }
 
-        .level-meter {
-            position: absolute; top: 75%; width: 200px; height: 2px;
-            background: rgba(255,255,255,0.2); z-index: 5;
-        }
-        #level-pointer {
-            width: 60px; height: 4px; background: var(--glow);
-            position: absolute; left: 50%; margin-left: -30px;
-            transition: transform 0.05s linear;
-        }
+        /* Level Bar */
+        .level-meter { position: absolute; top: 78%; left: 50%; width: 200px; height: 2px; background: #333; transform: translateX(-50%); }
+        #pointer { width: 40px; height: 4px; background: var(--glow); position: absolute; left: 50%; margin-left: -20px; transition: 0.1s; }
 
-        .hud { position: absolute; z-index: 10; text-align: center; width: 100%; pointer-events: none; }
+        /* HUD & Debug */
+        .hud { position: absolute; width: 100%; text-align: center; z-index: 10; }
         .top { top: 20px; }
         .bottom { bottom: 30px; pointer-events: auto; }
-
-        .status-pill {
-            background: rgba(0,0,0,0.8); border: 1px solid var(--glow);
-            padding: 8px 20px; display: inline-block; margin-bottom: 15px; min-width: 180px;
-        }
         
-        .btn {
-            background: rgba(0,0,0,0.5); border: 1px solid white; color: white;
-            padding: 12px 20px; cursor: pointer; text-transform: uppercase; font-size: 11px;
-            margin: 0 5px;
-        }
-        .btn-capture { background: var(--glow); color: black; font-weight: bold; border: none; opacity: 0.3; pointer-events: none; }
-        .btn-capture.active { opacity: 1; pointer-events: auto; }
+        #debug-log { font-size: 10px; color: #aaa; background: rgba(0,0,0,0.5); padding: 5px; position: absolute; top: 0; left: 0; pointer-events: none; }
+        .status { background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--glow); display: inline-block; margin-bottom: 10px; }
 
-        #hidden-canvas { display: none; }
+        .btn { background: #222; border: 1px solid white; color: white; padding: 12px 20px; cursor: pointer; text-transform: uppercase; margin: 5px; }
+        .capture-btn { background: var(--glow); color: black; border: none; font-weight: bold; opacity: 0.2; pointer-events: none; }
+        .capture-btn.ready { opacity: 1; pointer-events: auto; box-shadow: 0 0 15px var(--glow); }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <video id="video" autoplay playsinline muted></video>
+    <div id="debug-log">System Booting...</div>
+    <video id="video" autoplay playsinline muted></video>
+
+    <div class="overlay">
         <div class="mask"></div>
-        <div class="oval-border"></div>
-
-        <div class="level-meter">
-            <div id="level-pointer"></div>
-        </div>
-
-        <div class="hud top">
-            <h2 style="letter-spacing: 4px; margin:0;">FACIAL SCANNER</h2>
-            <div id="uid-tag" style="font-size: 10px;">SYSTEM READY</div>
-        </div>
-
-        <div class="hud bottom">
-            <div class="status-pill" id="status">INITIALIZING...</div>
-            <br>
-            <button class="btn" id="startBtn" onclick="initAll()">Start Camera</button>
-            <button class="btn" onclick="flipCamera()">Flip</button>
-            <button class="btn btn-capture" id="captureBtn" onclick="saveResult()">Verify</button>
-        </div>
+        <div class="oval"></div>
+        <div class="level-meter"><div id="pointer"></div></div>
     </div>
 
-    <canvas id="hidden-canvas"></canvas>
+    <div class="hud top">
+        <h2 style="letter-spacing: 5px; margin: 0;">AI SCANNER</h2>
+    </div>
+
+    <div class="hud bottom">
+        <div class="status" id="status">SENSOR LOCK REQUIRED</div><br>
+        <button class="btn" id="initBtn" onclick="startup()">Initialize</button>
+        <button class="btn" onclick="flip()">Flip</button>
+        <button class="btn capture-btn" id="capBtn" onclick="save()">Capture</button>
+    </div>
+
+    <canvas id="canvas" style="display:none"></canvas>
 
     <script>
-        const video = document.getElementById('video');
+        const log = (msg) => { document.getElementById('debug-log').innerText += `\n> ${msg}`; console.log(msg); };
         const status = document.getElementById('status');
-        const captureBtn = document.getElementById('captureBtn');
-        const levelPointer = document.getElementById('level-pointer');
+        const video = document.getElementById('video');
         let useFront = true;
-        let isLevel = false;
-        let faceInView = false;
-        let modelsLoaded = false;
+        let faceOK = false, levelOK = false;
 
-        async function initAll() {
-            document.getElementById('startBtn').style.display = 'none';
-            status.innerText = "REQUESTING SENSORS...";
+        async function startup() {
+            document.getElementById('initBtn').style.display = 'none';
+            log("Init started...");
 
-            // Orientation Permission for iOS
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try {
-                    const response = await DeviceOrientationEvent.requestPermission();
-                    if (response === 'granted') window.addEventListener('deviceorientation', handleOrientation);
-                } catch (e) { console.error("Orientation Error", e); }
+            // 1. Level Sensors (iOS 13+ fix)
+            if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const res = await DeviceOrientationEvent.requestPermission();
+                if (res === 'granted') window.addEventListener('deviceorientation', doLevel);
             } else {
-                window.addEventListener('deviceorientation', handleOrientation);
+                window.addEventListener('deviceorientation', doLevel);
             }
 
-            await loadModels();
-        }
-
-        function handleOrientation(event) {
-            let tilt = event.gamma; 
-            if (tilt !== null) {
-                levelPointer.style.transform = `rotate(${tilt}deg)`;
-                // Threshold for level (4 degrees)
-                isLevel = Math.abs(tilt) < 4;
-                levelPointer.style.background = isLevel ? "#00ff00" : "var(--glow)";
-                updateUIState();
-            }
-        }
-
-        async function loadModels() {
-            status.innerText = "LOADING AI...";
-            // Use specific version to avoid breaking changes
-            const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model/';
+            // 2. Load Models
             try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                modelsLoaded = true;
-                await startCamera();
+                log("Loading AI Models...");
+                const URL = "https://raw.githubusercontent.com/vladmandic/face-api/master/model/";
+                await faceapi.nets.tinyFaceDetector.loadFromUri(URL);
+                log("Models Loaded.");
+                await startCam();
             } catch (e) {
-                status.innerText = "MODEL LOAD FAILED";
-                console.error(e);
+                log("ERR: Model CORS/Network issue.");
+                status.innerText = "CONNECTION ERROR";
             }
         }
 
-        async function startCamera() {
+        async function startCam() {
+            log("Accessing Camera...");
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
             try {
-                if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-                
-                const constraints = { 
-                    video: { 
-                        facingMode: useFront ? "user" : "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                };
-
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: useFront ? "user" : "environment" }
+                });
                 video.srcObject = stream;
                 video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
-                
                 video.onloadedmetadata = () => {
-                    video.play();
-                    detectLoop();
+                    log("Stream active.");
+                    detect();
                 };
             } catch (e) {
+                log(`ERR: ${e.name}`);
                 status.innerText = "CAMERA BLOCKED";
-                console.error(e);
             }
         }
 
-        function flipCamera() {
-            useFront = !useFront;
-            startCamera();
+        function doLevel(e) {
+            let tilt = e.gamma;
+            if (tilt === null) return;
+            document.getElementById('pointer').style.transform = `rotate(${tilt}deg)`;
+            levelOK = Math.abs(tilt) < 5;
+            document.getElementById('pointer').style.background = levelOK ? "#00ff00" : "var(--glow)";
+            sync();
         }
 
-        async function detectLoop() {
-            if (!modelsLoaded) return;
-            const options = new faceapi.TinyFaceDetectorOptions();
-            
+        async function detect() {
+            const opt = new faceapi.TinyFaceDetectorOptions();
             setInterval(async () => {
-                const detection = await faceapi.detectSingleFace(video, options);
-                faceInView = !!detection;
-                updateUIState();
-            }, 250);
+                const result = await faceapi.detectSingleFace(video, opt);
+                faceOK = !!result;
+                sync();
+            }, 300);
         }
 
-        function updateUIState() {
-            if (!faceInView) {
-                status.innerText = "FRAME FACE";
-                status.style.color = "white";
-            } else if (!isLevel) {
-                status.innerText = "LEVEL DEVICE";
-                status.style.color = "orange";
-            } else {
-                status.innerText = "LOCKED: READY";
-                status.style.color = "#00ff00";
-            }
+        function sync() {
+            if (!faceOK) { status.innerText = "FRAME FACE"; status.style.color = "white"; }
+            else if (!levelOK) { status.innerText = "LEVEL DEVICE"; status.style.color = "orange"; }
+            else { status.innerText = "LOCKED: READY"; status.style.color = "#00ff00"; }
 
-            if (faceInView && isLevel) {
-                captureBtn.classList.add('active');
-            } else {
-                captureBtn.classList.remove('active');
-            }
+            const btn = document.getElementById('capBtn');
+            if (faceOK && levelOK) btn.classList.add('ready');
+            else btn.classList.remove('ready');
         }
 
-        function saveResult() {
-            const canvas = document.getElementById('hidden-canvas');
-            const ctx = canvas.getContext('2d');
-            const uid = 'FS-' + Math.random().toString(36).toUpperCase().substr(2, 8);
+        function flip() { useFront = !useFront; startCam(); }
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            if (useFront) {
-                ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1);
-            }
+        function save() {
+            const cvs = document.getElementById('canvas');
+            const ctx = cvs.getContext('2d');
+            cvs.width = video.videoWidth; cvs.height = video.videoHeight;
+            if (useFront) { ctx.translate(cvs.width, 0); ctx.scale(-1, 1); }
             ctx.drawImage(video, 0, 0);
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-            // Burn Overlay to Image
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, 0, canvas.width, 100);
-            ctx.fillStyle = "#00f2ff";
-            ctx.font = "bold 28px Courier";
-            ctx.fillText("UID: " + uid, 30, 50);
-            ctx.font = "18px Courier";
-            ctx.fillText("BIOMETRIC SCAN VERIFIED", 30, 85);
-
+            
             const link = document.createElement('a');
-            link.download = `Verification_${uid}.png`;
-            link.href = canvas.toDataURL('image/png');
+            link.download = 'Scan.png';
+            link.href = cvs.toDataURL();
             link.click();
+            log("Saved.");
         }
     </script>
 </body>
