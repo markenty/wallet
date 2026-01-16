@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Biometric Scan System</title>
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         :root { --glow: #00f2ff; --bg: rgba(0, 0, 0, 0.85); }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: 'Courier New', monospace; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: white; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; }
         
         .container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; background: #111; }
         
-        /* Oval Mask */
         .mask {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg);
@@ -26,7 +25,6 @@
             box-shadow: 0 0 20px var(--glow); z-index: 2; pointer-events: none;
         }
 
-        /* X-Level Indicator */
         .level-meter {
             position: absolute; top: 75%; width: 200px; height: 2px;
             background: rgba(255,255,255,0.2); z-index: 5;
@@ -37,19 +35,19 @@
             transition: transform 0.05s linear;
         }
 
-        /* HUD */
         .hud { position: absolute; z-index: 10; text-align: center; width: 100%; pointer-events: none; }
         .top { top: 20px; }
         .bottom { bottom: 30px; pointer-events: auto; }
 
         .status-pill {
-            background: rgba(0,0,0,0.7); border: 1px solid var(--glow);
+            background: rgba(0,0,0,0.8); border: 1px solid var(--glow);
             padding: 8px 20px; display: inline-block; margin-bottom: 15px; min-width: 180px;
         }
         
         .btn {
             background: rgba(0,0,0,0.5); border: 1px solid white; color: white;
             padding: 12px 20px; cursor: pointer; text-transform: uppercase; font-size: 11px;
+            margin: 0 5px;
         }
         .btn-capture { background: var(--glow); color: black; font-weight: bold; border: none; opacity: 0.3; pointer-events: none; }
         .btn-capture.active { opacity: 1; pointer-events: auto; }
@@ -70,13 +68,13 @@
 
         <div class="hud top">
             <h2 style="letter-spacing: 4px; margin:0;">FACIAL SCANNER</h2>
-            <div id="uid-tag" style="font-size: 10px;">ID: INITIALIZING</div>
+            <div id="uid-tag" style="font-size: 10px;">SYSTEM READY</div>
         </div>
 
         <div class="hud bottom">
-            <div class="status-pill" id="status">CLICK TO START</div>
+            <div class="status-pill" id="status">INITIALIZING...</div>
             <br>
-            <button class="btn" id="startBtn" onclick="initAll()">Start Sensors</button>
+            <button class="btn" id="startBtn" onclick="initAll()">Start Camera</button>
             <button class="btn" onclick="flipCamera()">Flip</button>
             <button class="btn btn-capture" id="captureBtn" onclick="saveResult()">Verify</button>
         </div>
@@ -92,47 +90,74 @@
         let useFront = true;
         let isLevel = false;
         let faceInView = false;
+        let modelsLoaded = false;
 
-        // Initialize Camera and Sensors (iOS requires user click)
         async function initAll() {
             document.getElementById('startBtn').style.display = 'none';
-            
-            // Request Orientation Permission (iOS 13+)
+            status.innerText = "REQUESTING SENSORS...";
+
+            // Orientation Permission for iOS
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const response = await DeviceOrientationEvent.requestPermission();
-                if (response === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
+                    if (response === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                } catch (e) { console.error("Orientation Error", e); }
             } else {
                 window.addEventListener('deviceorientation', handleOrientation);
             }
 
-            loadModels();
+            await loadModels();
         }
 
         function handleOrientation(event) {
-            let tilt = event.gamma; // Left-to-right tilt
+            let tilt = event.gamma; 
             if (tilt !== null) {
                 levelPointer.style.transform = `rotate(${tilt}deg)`;
+                // Threshold for level (4 degrees)
                 isLevel = Math.abs(tilt) < 4;
                 levelPointer.style.background = isLevel ? "#00ff00" : "var(--glow)";
-                checkCaptureReady();
+                updateUIState();
             }
         }
 
         async function loadModels() {
             status.innerText = "LOADING AI...";
+            // Use specific version to avoid breaking changes
             const MODEL_URL = 'https://raw.githubusercontent.com/vladmandic/face-api/master/model/';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-            startCamera();
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                await startCamera();
+            } catch (e) {
+                status.innerText = "MODEL LOAD FAILED";
+                console.error(e);
+            }
         }
 
         async function startCamera() {
-            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: useFront ? "user" : "environment" } 
-            });
-            video.srcObject = stream;
-            video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
-            video.onloadedmetadata = () => detectLoop();
+            try {
+                if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+                
+                const constraints = { 
+                    video: { 
+                        facingMode: useFront ? "user" : "environment",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                video.style.transform = useFront ? "scaleX(-1)" : "scaleX(1)";
+                
+                video.onloadedmetadata = () => {
+                    video.play();
+                    detectLoop();
+                };
+            } catch (e) {
+                status.innerText = "CAMERA BLOCKED";
+                console.error(e);
+            }
         }
 
         function flipCamera() {
@@ -141,23 +166,28 @@
         }
 
         async function detectLoop() {
+            if (!modelsLoaded) return;
             const options = new faceapi.TinyFaceDetectorOptions();
+            
             setInterval(async () => {
                 const detection = await faceapi.detectSingleFace(video, options);
                 faceInView = !!detection;
-                
-                if (faceInView) {
-                    status.innerText = isLevel ? "LOCKED: READY" : "LEVEL DEVICE";
-                    status.style.color = isLevel ? "#00ff00" : "orange";
-                } else {
-                    status.innerText = "FRAME FACE";
-                    status.style.color = "white";
-                }
-                checkCaptureReady();
-            }, 200);
+                updateUIState();
+            }, 250);
         }
 
-        function checkCaptureReady() {
+        function updateUIState() {
+            if (!faceInView) {
+                status.innerText = "FRAME FACE";
+                status.style.color = "white";
+            } else if (!isLevel) {
+                status.innerText = "LEVEL DEVICE";
+                status.style.color = "orange";
+            } else {
+                status.innerText = "LOCKED: READY";
+                status.style.color = "#00ff00";
+            }
+
             if (faceInView && isLevel) {
                 captureBtn.classList.add('active');
             } else {
@@ -180,18 +210,18 @@
             ctx.drawImage(video, 0, 0);
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            // UI Branding on Saved Image
+            // Burn Overlay to Image
             ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.fillRect(0, 0, canvas.width, 80);
+            ctx.fillRect(0, 0, canvas.width, 100);
             ctx.fillStyle = "#00f2ff";
-            ctx.font = "24px Courier";
-            ctx.fillText("UID: " + uid, 20, 40);
-            ctx.font = "16px Courier";
-            ctx.fillText("SECURE BIOMETRIC SCAN", 20, 65);
+            ctx.font = "bold 28px Courier";
+            ctx.fillText("UID: " + uid, 30, 50);
+            ctx.font = "18px Courier";
+            ctx.fillText("BIOMETRIC SCAN VERIFIED", 30, 85);
 
             const link = document.createElement('a');
             link.download = `Verification_${uid}.png`;
-            link.href = canvas.toDataURL();
+            link.href = canvas.toDataURL('image/png');
             link.click();
         }
     </script>
